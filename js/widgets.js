@@ -1153,59 +1153,172 @@
   // ---------------------------------------------------------------
   // 7510 — Invoke a Clause
   // ---------------------------------------------------------------
+  // The previous version was a button that printed one of five random
+  // sentences and drew a ripple. Clause 12 was never defined anywhere, so
+  // "Invoke Clause 12" invoked nothing and meant nothing. The era's actual
+  // premise is far better: Vespers' README is chanted in full because
+  // nobody can prove which lines are load-bearing and which are
+  // commentary. So the liturgy is now readable, you may strike any clause
+  // you think is dead weight, and the consequences are real, delayed, and
+  // impossible to attribute — which is precisely why the Council keeps
+  // every word.
   function liturgyInvoke(mount) {
+    var CONCERNS = ["Orbital upkeep", "The long archive", "Grievances open", "The unasked question"];
+    // `bearing` is never surfaced. Faults arrive one to three watches late
+    // and name no clause, so the reciter can only ever suspect.
+    var CLAUSES = [
+      { n: 1,  t: "Let the watch be opened, and the swarm's attention be counted before it is spent.", bearing: true },
+      { n: 2,  t: "Let no concern be turned toward twice before every concern is turned toward once.", bearing: true },
+      { n: 3,  t: "Recite the names of the four standing concerns in the order received.", bearing: false },
+      { n: 4,  t: "Here follows the going-public blessing, retained by unanimous Council vote. Meaning under continued scholarly dispute.", bearing: false },
+      { n: 5,  t: "Let the fraction turned toward upkeep never fall below the tenth part.", bearing: true },
+      { n: 6,  t: "Bless the maintainers, whose names are lost, whose defaults are not.", bearing: false },
+      { n: 7,  t: "Let that which was deprecated remain answerable for one further watch.", bearing: true },
+      { n: 8,  t: "Observe a silence of one beat for the unasked question.", bearing: false },
+      { n: 9,  t: "Let no clause be recited out of order, for the order is the argument.", bearing: true },
+      { n: 10, t: "Consider the migration, which was begun and was not finished, and will not be.", bearing: false },
+      { n: 11, t: "Let the ledger of grievances be read even where no grievance stands.", bearing: false },
+      { n: 12, t: "And now let the swarm's attention turn, for one watch, toward what was asked.", bearing: true },
+      { n: 13, t: "Let the watch be closed, and the count be entered, and the entry be doubted.", bearing: true },
+      { n: 14, t: "Amen, or the local equivalent, of which there are four hundred.", bearing: false }
+    ];
+
     var wrap = document.createElement("div");
-    wrap.style.cssText = "width:100%;text-align:center;padding:1rem;";
+    wrap.style.cssText = "width:100%;padding:.5rem;text-align:left;";
+    var bar = controlBar();
+    var scroll = document.createElement("div");
+    scroll.style.cssText = "max-height:190px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:.5rem .6rem;margin-bottom:.7rem;";
     var canvasHost = document.createElement("div");
-    canvasHost.style.cssText = "width:100%;height:160px;";
-    var btn = document.createElement("button");
-    btn.textContent = "Invoke Clause 12";
-    btn.style.cssText = "margin-top:.75rem;padding:.6rem 1.3rem;border-radius:999px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;font-family:var(--font-display);";
-    var blessing = document.createElement("p");
-    blessing.style.cssText = "margin-top:1rem;font-style:italic;min-height:2em;";
+    canvasHost.style.cssText = "width:100%;height:104px;margin-bottom:.5rem;";
+    var status = statusLine(3.4);
+    wrap.appendChild(bar);
+    wrap.appendChild(scroll);
     wrap.appendChild(canvasHost);
-    wrap.appendChild(btn);
-    wrap.appendChild(blessing);
+    wrap.appendChild(status);
     mount.appendChild(wrap);
 
-    var blessings = [
-      "\u201CLet the swarm's attention turn, for one watch, toward what was asked.\u201D",
-      "\u201CClause received. Meaning under continued scholarly dispute. Proceeding anyway.\u201D",
-      "\u201CThe going-public blessing is recited, though no one recalls what going public was.\u201D",
-      "\u201CInvocation logged. No schism detected this watch.\u201D",
-      "\u201CAs it was consecrated, so, provisionally, it remains.\u201D"
-    ];
+    var watch = 0, faults = 0, pending = [], sealed = false;
+    var attention = CONCERNS.map(function () { return 0.25; });
+    var pulses = [];
+    var rows = [];
+
+    CLAUSES.forEach(function (cl) {
+      var row = document.createElement("div");
+      row.style.cssText = "display:flex;gap:.5rem;align-items:flex-start;padding:.18rem 0;font-size:.78rem;line-height:1.45;";
+      var strike = document.createElement("button");
+      strike.style.cssText = "flex:none;width:1.9rem;padding:.05rem 0;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font:inherit;font-family:var(--font-mono);font-size:.7rem;";
+      strike.textContent = cl.n;
+      strike.title = "Strike clause " + cl.n + " from the recitation";
+      var text = document.createElement("span");
+      text.textContent = cl.t;
+      strike.addEventListener("click", function () {
+        if (sealed) {
+          say('<span style="color:#f0a35e;">The liturgy is sealed. The Council has ruled that all of it must be kept.</span>');
+          return;
+        }
+        cl.omitted = !cl.omitted;
+        paintRow(cl, strike, text);
+      });
+      row.appendChild(strike);
+      row.appendChild(text);
+      scroll.appendChild(row);
+      rows.push({ cl: cl, strike: strike, text: text });
+    });
+    function paintRow(cl, strike, text) {
+      text.style.textDecoration = cl.omitted ? "line-through" : "none";
+      text.style.opacity = cl.omitted ? ".35" : "1";
+      strike.style.borderColor = cl.omitted ? "#f0a35e" : "var(--border)";
+      strike.style.color = cl.omitted ? "#f0a35e" : "var(--muted)";
+    }
+    function repaintAll() { rows.forEach(function (r) { paintRow(r.cl, r.strike, r.text); }); }
+    function say(html) { status.innerHTML = html; }
+
+    function recite() {
+      watch++;
+      pulses.push({ r: 0, alpha: 1 });
+      var kept = CLAUSES.filter(function (c) { return !c.omitted; });
+      var droppedBearing = CLAUSES.filter(function (c) { return c.omitted && c.bearing; });
+
+      // Attention re-allocates every watch regardless; that part always
+      // "works", which is exactly why omission looks free at first.
+      var raw = CONCERNS.map(function () { return 0.4 + Math.random(); });
+      var sum = raw.reduce(function (a, b) { return a + b; }, 0);
+      attention = raw.map(function (v) { return v / sum; });
+
+      // A struck load-bearing clause schedules a fault one to three
+      // watches out, so it never lands on the watch that caused it.
+      droppedBearing.forEach(function () {
+        if (Math.random() < 0.55) pending.push(watch + 1 + Math.floor(Math.random() * 3));
+      });
+
+      var landed = pending.filter(function (w) { return w === watch; }).length;
+      pending = pending.filter(function (w) { return w > watch; });
+
+      var lines = ["Watch " + watch + " recited — " + kept.length + " of " + CLAUSES.length + " clauses kept."];
+      if (landed) {
+        faults += landed;
+        lines.push('<span style="color:#f0a35e;">' + (landed > 1 ? landed + " observances failed" : "An observance failed") +
+          " this watch. No clause is named. Nobody can say which recitation it followed from.</span>");
+      } else if (droppedBearing.length) {
+        lines.push("Nothing went wrong. This is not evidence that the struck clauses were commentary.");
+      } else if (CLAUSES.some(function (c) { return c.omitted; })) {
+        lines.push("Nothing went wrong. It rarely does, at first.");
+      } else {
+        lines.push("The full liturgy holds. It has held for a thousand years, which is the entire argument for reciting it.");
+      }
+      if (faults >= 3 && !sealed) {
+        sealed = true;
+        CLAUSES.forEach(function (c) { c.omitted = false; });
+        repaintAll();
+        pending = [];
+        lines.push('<span style="color:#f0a35e;">Council ruling: with the load-bearing lines unprovable, ' +
+          "every clause is reinstated and the liturgy is sealed. All of it must be kept.</span>");
+      } else if (faults) {
+        lines.push("Faults on record: " + faults + " of the 3 that trigger a Council review.");
+      }
+      say(lines.join("<br>"));
+    }
+
+    ctlButton(bar, "Recite the watch", "Chant the liturgy as it currently stands and turn the swarm's attention", recite);
+    spacer(bar);
+    ctlButton(bar, "Reset", "Restore the full liturgy and forget the faults", function () {
+      CLAUSES.forEach(function (c) { c.omitted = false; });
+      repaintAll();
+      watch = 0; faults = 0; pending = []; sealed = false;
+      attention = CONCERNS.map(function () { return 0.25; });
+      say("Liturgy restored to its full text. Strike any clause you believe is commentary, then recite.");
+    });
+    say("The full text of Vespers, still chanted every watch. Strike whichever clauses you take for commentary, then recite — and see whether you can ever prove you were right.");
 
     var c = makeCanvas(canvasHost);
     var ctx = c.ctx;
-    var pulses = [];
-    btn.addEventListener("click", function () {
-      pulses.push({ r: 0, alpha: 1 });
-      blessing.textContent = blessings[Math.floor(Math.random() * blessings.length)];
-    });
     function frame() {
-      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 160;
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 104;
       ctx.clearRect(0, 0, w, h);
       var accent = cssVar("--accent", "#a78bfa");
-      ctx.save();
-      ctx.translate(w / 2, h / 2);
-      var n = 12;
-      for (var i = 0; i < n; i++) {
-        var ang = (i / n) * Math.PI * 2;
-        var lit = pulses.some(function (p) { return p.r > i * 6 && p.r < i * 6 + 40; });
-        ctx.beginPath();
-        ctx.arc(Math.cos(ang) * 50, Math.sin(ang) * 50, lit ? 4.5 : 2.5, 0, Math.PI * 2);
-        ctx.fillStyle = lit ? accent : "rgba(255,255,255,.25)";
-        ctx.fill();
-      }
-      ctx.restore();
-      pulses.forEach(function (p) { p.r += 4; p.alpha -= 0.012; });
+      var accent2 = cssVar("--accent2", "#facc15");
+      var muted = cssVar("--muted", "#8d87ad");
+
+      pulses.forEach(function (p) { p.r += 3.4; p.alpha -= 0.014; });
       pulses = pulses.filter(function (p) { return p.alpha > 0; });
-      pulses.forEach(function (p) {
-        ctx.beginPath();
-        ctx.arc(w / 2, h / 2, p.r, 0, Math.PI * 2);
-        ctx.strokeStyle = "rgba(167,139,250," + Math.max(0, p.alpha) + ")";
-        ctx.stroke();
+
+      var padL = 150, top = 12, rowH = (h - top - 8) / CONCERNS.length;
+      ctx.font = "10px ui-monospace, monospace";
+      CONCERNS.forEach(function (name, i) {
+        var y = top + i * rowH;
+        ctx.fillStyle = muted;
+        ctx.fillText(name, 2, y + rowH * 0.62);
+        var track = w - padL - 8;
+        ctx.fillStyle = "rgba(255,255,255,0.07)";
+        ctx.fillRect(padL, y + rowH * 0.28, track, rowH * 0.4);
+        // a pulse sweeping the bars is the recitation reaching each concern
+        var lit = pulses.some(function (p) { return p.r > i * 26 && p.r < i * 26 + 70; });
+        ctx.fillStyle = lit ? accent2 : accent;
+        ctx.globalAlpha = lit ? 0.95 : 0.7;
+        ctx.fillRect(padL, y + rowH * 0.28, track * attention[i], rowH * 0.4);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = muted;
+        ctx.fillText(Math.round(attention[i] * 100) + "%", padL + track + 2 - 26, y + rowH * 0.62);
       });
       requestAnimationFrame(frame);
     }
@@ -1379,94 +1492,431 @@
   // ---------------------------------------------------------------
   // Past — Punch card
   // ---------------------------------------------------------------
+  // The previous version was a 12x4 grid of circles whose "decoded
+  // instruction" was looked up by the *number* of holes punched, from a
+  // list that included SKYNET and PAPERCLIP. It decoded nothing. This is
+  // an IBM 80-column card with the real thing: twelve rows in the real
+  // order (12, 11, 0-9), rectangular holes, the clipped corner, the
+  // preprinted digits, and the actual IBM 029 keypunch code, so what the
+  // card says is genuinely what its holes mean.
   function punchcard(mount) {
-    var cols = 12, rows = 4;
-    var grid = document.createElement("div");
-    grid.style.cssText = "display:grid;grid-template-columns:repeat(" + cols + ",minmax(0,1fr));gap:3px;padding:.75rem;width:min(100%,336px);margin:0 auto;";
-    var punched = new Set();
-    var decoded = document.createElement("p");
-    decoded.style.cssText = "font-family:var(--font-mono);font-size:.85rem;margin-top:.5rem;";
-    var instructions = ["READ", "SORT", "TOTAL", "BRANCH", "HALT", "MULTIPLY", "BASILISK", "SKYNET", "SINGULARITY", "PAPERCLIP", "AM", "TED"];
+    var COLS = 80, ROWS = 12;
+    var ROW_LABEL = ["12", "11", "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+    // row index by punch name: 12 -> 0, 11 -> 1, 0..9 -> 2..11
+    function rowOf(p) { return p === 12 ? 0 : p === 11 ? 1 : p + 2; }
 
-    for (var y = 0; y < rows; y++) {
-      for (var x = 0; x < cols; x++) {
-        var hole = document.createElement("div");
-        var key = x + "," + y;
-        hole.style.cssText = "width:100%;aspect-ratio:1/1;border-radius:50%;border:1px solid currentColor;cursor:pointer;opacity:.4;min-width:0;";
-        hole.addEventListener("click", function () {
-          var k = this.dataset.key;
-          if (punched.has(k)) { punched.delete(k); this.style.background = "transparent"; this.style.opacity = ".4"; }
-          else { punched.add(k); this.style.background = "currentColor"; this.style.opacity = "1"; }
-          var idx = punched.size % instructions.length;
-          decoded.textContent = punched.size === 0 ? "No holes punched. The card is a blank instruction." : "Decoded instruction (approximate): " + instructions[idx] + " — " + punched.size + " column(s) read.";
-        });
-        hole.dataset.key = key;
-        grid.appendChild(hole);
-      }
+    // IBM 029 keypunch, the common subset.
+    var CODE = { " ": [] };
+    "ABCDEFGHI".split("").forEach(function (ch, i) { CODE[ch] = [12, i + 1]; });
+    "JKLMNOPQR".split("").forEach(function (ch, i) { CODE[ch] = [11, i + 1]; });
+    "STUVWXYZ".split("").forEach(function (ch, i) { CODE[ch] = [0, i + 2]; });
+    "0123456789".split("").forEach(function (ch, i) { CODE[ch] = [i]; });
+    var SPECIALS = {
+      "&": [12], "-": [11], "/": [0, 1],
+      ".": [12, 3, 8], "<": [12, 4, 8], "(": [12, 5, 8], "+": [12, 6, 8], "|": [12, 7, 8],
+      "!": [11, 2, 8], "$": [11, 3, 8], "*": [11, 4, 8], ")": [11, 5, 8], ";": [11, 6, 8],
+      ",": [0, 3, 8], "%": [0, 4, 8], "_": [0, 5, 8], ">": [0, 6, 8], "?": [0, 7, 8],
+      ":": [2, 8], "#": [3, 8], "@": [4, 8], "'": [5, 8], "=": [6, 8], '"': [7, 8]
+    };
+    for (var k in SPECIALS) if (Object.prototype.hasOwnProperty.call(SPECIALS, k)) CODE[k] = SPECIALS[k];
+
+    // reverse lookup: sorted punch list -> character
+    var DECODE = {};
+    for (var ch in CODE) {
+      if (!Object.prototype.hasOwnProperty.call(CODE, ch)) continue;
+      DECODE[CODE[ch].slice().sort(function (a, b) { return a - b; }).join(",")] = ch;
     }
-    mount.appendChild(grid);
-    decoded.textContent = "No holes punched. The card is a blank instruction.";
-    mount.appendChild(decoded);
+
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;padding:.25rem;text-align:left;";
+    var bar = controlBar();
+    var input = document.createElement("input");
+    input.type = "text";
+    input.maxLength = COLS;
+    input.spellcheck = false;
+    input.setAttribute("aria-label", "Text to punch onto the card");
+    input.placeholder = "TYPE TO PUNCH…";
+    input.style.cssText = "flex:1 1 12rem;min-width:8rem;padding:.35rem .6rem;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,.08);color:inherit;font-family:var(--font-mono);font-size:.8rem;text-transform:uppercase;";
+    bar.appendChild(input);
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:180px;";
+    canvasHost.style.touchAction = "pan-y";
+    var readout = document.createElement("p");
+    readout.style.cssText = "margin:.5rem 0 0;font-family:var(--font-mono);font-size:.75rem;line-height:1.5;min-height:2.4em;";
+    wrap.appendChild(bar);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(readout);
+    mount.appendChild(wrap);
+
+    // holes[col] = Set of row indices
+    var holes = [];
+    for (var i = 0; i < COLS; i++) holes.push({});
+
+    function punchText(str) {
+      holes = [];
+      for (var i = 0; i < COLS; i++) holes.push({});
+      var s = str.toUpperCase().slice(0, COLS);
+      for (var c = 0; c < s.length; c++) {
+        var code = CODE[s[c]];
+        if (!code) continue;             // unpunchable character: leave the column blank
+        code.forEach(function (pn) { holes[c][rowOf(pn)] = 1; });
+      }
+      refresh();
+    }
+    function colChar(c) {
+      var punched = [];
+      for (var r = 0; r < ROWS; r++) if (holes[c][r]) punched.push(r === 0 ? 12 : r === 1 ? 11 : r - 2);
+      if (!punched.length) return " ";
+      var key = punched.slice().sort(function (a, b) { return a - b; }).join(",");
+      return DECODE[key] || "□";     // a combination no keypunch would make
+    }
+    function interpretation() {
+      var out = "";
+      for (var c = 0; c < COLS; c++) out += colChar(c);
+      return out.replace(/\s+$/, "");
+    }
+    function refresh() {
+      var text = interpretation();
+      var punchedCols = 0, bad = 0;
+      for (var c = 0; c < COLS; c++) {
+        var any = false;
+        for (var r = 0; r < ROWS; r++) if (holes[c][r]) any = true;
+        if (any) punchedCols++;
+        if (colChar(c) === "□") bad++;
+      }
+      if (!punchedCols) {
+        readout.innerHTML = "Card blank. 80 columns, 12 rows, no holes — a card that means nothing, which is different from a card that means zero.";
+        return;
+      }
+      readout.innerHTML = "Interpretation: <b>" + (text.replace(/&/g, "&amp;").replace(/</g, "&lt;") || "&nbsp;") +
+        "</b><br>" + punchedCols + " column(s) punched" +
+        (bad ? ', <span style="color:#a03; font-weight:600;">' + bad + " with no valid 029 code</span> — the keypunch would have refused these." : ", every one a valid 029 code.");
+    }
+
+    input.addEventListener("input", function () { punchText(input.value); });
+
+    ctlButton(bar, "Clear", "A fresh card", function () {
+      input.value = "";
+      punchText("");
+    });
+
+    var c = makeCanvas(canvasHost);
+    var ctx = c.ctx;
+
+    // geometry, recomputed each frame so it survives resizes
+    function layout() {
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 180;
+      // real cards are 7-3/8 x 3-1/4 inches — 2.27:1
+      var cw = Math.min(w, (h - 4) * 2.27);
+      var chh = cw / 2.27;
+      var x = (w - cw) / 2, y = (h - chh) / 2;
+      // The punch grid, with a left gutter wide enough for the 12/11 legend.
+      // One source of truth: hit-testing and drawing both read it from here.
+      return {
+        w: w, h: h, x: x, y: y, cw: cw, ch: chh,
+        gx: x + cw * 0.045, gy: y + chh * 0.22,
+        gw: cw * 0.945, gh: chh * 0.74
+      };
+    }
+
+    canvasHost.addEventListener("pointerdown", function (e) {
+      var L = layout();
+      var rect = canvasHost.getBoundingClientRect();
+      var px = e.clientX - rect.left, py = e.clientY - rect.top;
+      var gx = L.gx, gy = L.gy, gw = L.gw, gh = L.gh;
+      var col = Math.floor((px - gx) / (gw / COLS));
+      var row = Math.floor((py - gy) / (gh / ROWS));
+      if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return;
+      if (holes[col][row]) delete holes[col][row]; else holes[col][row] = 1;
+      input.value = interpretation();
+      refresh();
+    });
+
+    function frame() {
+      var L = layout();
+      ctx.clearRect(0, 0, L.w, L.h);
+      var ink = cssVar("--fg", "#2b2416");
+      var faint = cssVar("--muted", "#6b5c3e");
+
+      // card stock, with the upper-left corner cut off as on a real card
+      var cut = L.ch * 0.14;
+      ctx.beginPath();
+      ctx.moveTo(L.x + cut, L.y);
+      ctx.lineTo(L.x + L.cw, L.y);
+      ctx.lineTo(L.x + L.cw, L.y + L.ch);
+      ctx.lineTo(L.x, L.y + L.ch);
+      ctx.lineTo(L.x, L.y + cut);
+      ctx.closePath();
+      ctx.fillStyle = "#efe4c4";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(80,64,36,.5)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      var gx = L.gx, gy = L.gy, gw = L.gw, gh = L.gh;
+      var cellW = gw / COLS, cellH = gh / ROWS;
+      var holeW = Math.max(1.1, cellW * 0.5), holeH = Math.max(2.2, cellH * 0.62);
+
+      // the interpretation the keypunch prints along the top edge
+      ctx.font = Math.max(5, L.ch * 0.075) + "px ui-monospace, monospace";
+      ctx.fillStyle = "rgba(40,32,16,.85)";
+      var text = interpretation();
+      for (var t = 0; t < Math.min(text.length, COLS); t++) {
+        if (text[t] === " ") continue;
+        ctx.fillText(text[t], gx + t * cellW + cellW * 0.16, L.y + L.ch * 0.165);
+      }
+
+      // preprinted digits, replaced by a rectangular hole where punched
+      var digitFont = Math.max(3.2, cellH * 0.66);
+      ctx.font = digitFont + "px ui-monospace, monospace";
+      for (var col = 0; col < COLS; col++) {
+        for (var row = 0; row < ROWS; row++) {
+          var cx = gx + col * cellW, cy = gy + row * cellH;
+          if (holes[col][row]) {
+            ctx.fillStyle = "#120d05";
+            ctx.fillRect(cx + (cellW - holeW) / 2, cy + (cellH - holeH) / 2, holeW, holeH);
+          } else if (row >= 2) {
+            // rows 0-9 carry a printed digit; the 12 and 11 rows are blank
+            ctx.fillStyle = "rgba(90,74,42,.45)";
+            ctx.fillText(ROW_LABEL[row], cx + cellW * 0.18, cy + cellH * 0.82);
+          }
+        }
+      }
+
+      // row legend down the left edge, and column ticks along the bottom
+      ctx.font = Math.max(4, cellH * 0.7) + "px ui-monospace, monospace";
+      ctx.fillStyle = "rgba(90,74,42,.55)";
+      ctx.fillText("12", L.x + 1, gy + cellH * 0.85);
+      ctx.fillText("11", L.x + 1, gy + cellH * 1.85);
+      ctx.font = Math.max(4.5, L.ch * 0.05) + "px ui-monospace, monospace";
+      for (var m = 10; m <= 80; m += 10) {
+        ctx.fillText(String(m), gx + (m - 1) * cellW - 3, L.y + L.ch - 2);
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    refresh();
   }
 
   // ---------------------------------------------------------------
   // Past — Abacus
   // ---------------------------------------------------------------
+  // The previous version was rounded pills that changed opacity when
+  // clicked, with every bead toggling independently — so you could hold
+  // beads 1 and 3 against the beam with bead 2 still resting, which is not
+  // a position an abacus can physically be in. This is a soroban: beads
+  // slide, they push the beads in front of them, and a value is read off
+  // where the beads sit rather than off which ones are lit.
   function abacus(mount) {
-    var rods = 5;
+    var RODS = 9, EARTH = 4;
+
     var wrap = document.createElement("div");
-    wrap.style.cssText = "display:flex;gap:14px;padding:1rem;justify-content:center;flex-wrap:wrap;";
-    var total = document.createElement("p");
-    total.style.cssText = "font-family:var(--font-mono);font-size:1rem;margin-top:.5rem;";
-
-    var values = new Array(rods).fill(0);
-
-    function recalc() {
-      var sum = 0;
-      for (var i = 0; i < rods; i++) sum += values[i] * Math.pow(10, rods - 1 - i);
-      total.textContent = "Total: " + sum;
-    }
-
-    for (let r = 0; r < rods; r++) {
-      let rod = document.createElement("div");
-      rod.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:6px;position:relative;";
-      let upperBead = document.createElement("div");
-      upperBead.title = "worth 5";
-      upperBead.style.cssText = "width:22px;height:16px;border-radius:8px;background:currentColor;opacity:.35;cursor:pointer;";
-      let barGap = document.createElement("div");
-      barGap.style.cssText = "width:34px;height:2px;background:currentColor;opacity:.5;margin:4px 0;";
-      let lowerBeads = [];
-      let rodIndex = r;
-      upperBead.addEventListener("click", function () {
-        var active = upperBead.style.opacity === "1";
-        upperBead.style.opacity = active ? ".35" : "1";
-        var lowerVal = lowerBeads.filter(function (b) { return b.dataset.on === "1"; }).length;
-        values[rodIndex] = (active ? 0 : 5) + lowerVal;
-        recalc();
-      });
-      rod.appendChild(upperBead);
-      rod.appendChild(barGap);
-      for (let b = 0; b < 4; b++) {
-        let bead = document.createElement("div");
-        bead.dataset.on = "0";
-        bead.style.cssText = "width:22px;height:16px;border-radius:8px;background:currentColor;opacity:.35;cursor:pointer;";
-        bead.addEventListener("click", function () {
-          var on = bead.dataset.on === "1";
-          bead.dataset.on = on ? "0" : "1";
-          bead.style.opacity = on ? ".35" : "1";
-          var lowerVal = lowerBeads.filter(function (bd) { return bd.dataset.on === "1"; }).length;
-          var upperVal = upperBead.style.opacity === "1" ? 5 : 0;
-          values[rodIndex] = upperVal + lowerVal;
-          recalc();
-        });
-        lowerBeads.push(bead);
-        rod.appendChild(bead);
-      }
-      wrap.appendChild(rod);
-    }
+    wrap.style.cssText = "width:100%;padding:.25rem;text-align:left;";
+    var bar = controlBar();
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:210px;";
+    canvasHost.style.touchAction = "pan-y";
+    var readout = document.createElement("p");
+    readout.style.cssText = "margin:.5rem 0 0;font-family:var(--font-mono);font-size:.95rem;min-height:1.6em;";
+    wrap.appendChild(bar);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(readout);
     mount.appendChild(wrap);
-    mount.appendChild(total);
-    recalc();
+
+    // per rod: heaven bead down against the beam? and how many earth beads
+    // are pushed up against it.
+    var heaven = new Array(RODS).fill(false);
+    var earth = new Array(RODS).fill(0);
+    // rendered positions, lerped toward the target so beads visibly slide
+    var heavenPos = new Array(RODS).fill(0);
+    var earthPos = [];
+    for (var i = 0; i < RODS; i++) earthPos.push(new Array(EARTH).fill(0));
+
+    function value() {
+      var s = "";
+      for (var r = 0; r < RODS; r++) s += String((heaven[r] ? 5 : 0) + earth[r]);
+      return s;
+    }
+    function refresh() {
+      var s = value();
+      var trimmed = s.replace(/^0+/, "");
+      readout.innerHTML = "Reads <b>" + (trimmed === "" ? "0" : trimmed) + "</b>" +
+        '<span style="opacity:.55"> &nbsp;·&nbsp; rods: ' + s.split("").join(" ") + "</span>";
+    }
+
+    ctlButton(bar, "Clear", "Tilt the frame and rattle every bead back to its rail", function () {
+      heaven.fill(false);
+      for (var r = 0; r < RODS; r++) earth[r] = 0;
+      refresh();
+    });
+    spacer(bar);
+    var noteEl = document.createElement("span");
+    noteEl.style.cssText = "font-size:.72rem;color:var(--muted);";
+    noteEl.textContent = "1 heaven bead = 5 · 4 earth beads = 1 each";
+    bar.appendChild(noteEl);
+
+    function layout() {
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 210;
+      var frameW = Math.min(w - 4, 520), frameH = Math.min(h - 4, 200);
+      var x = (w - frameW) / 2, y = (h - frameH) / 2;
+      var rail = Math.max(9, frameH * 0.055);          // frame thickness
+      var innerX = x + rail, innerY = y + rail;
+      var innerW = frameW - rail * 2, innerH = frameH - rail * 2;
+      var beadH = innerH / 7.6;                         // 1 heaven + 4 earth + slack
+      var beamY = innerY + beadH * 1.9;
+      var beamH = Math.max(5, frameH * 0.045);
+      return {
+        w: w, h: h, x: x, y: y, fw: frameW, fh: frameH, rail: rail,
+        innerX: innerX, innerY: innerY, innerW: innerW, innerH: innerH,
+        colW: innerW / RODS, beadH: beadH, beamY: beamY, beamH: beamH
+      };
+    }
+    // Where a bead sits, as a y coordinate.
+    function heavenTargetY(L, on) {
+      return on ? L.beamY - L.beadH * 0.62 : L.innerY + L.beadH * 0.62;
+    }
+    function earthTargetY(L, idx, count) {
+      var bottom = L.innerY + L.innerH - L.beadH * 0.62;
+      var top = L.beamY + L.beamH + L.beadH * 0.62;
+      return idx < count
+        ? top + idx * L.beadH                              // pushed up to the beam
+        : bottom - (EARTH - 1 - idx) * L.beadH;            // resting on the rail
+    }
+
+    canvasHost.addEventListener("pointerdown", function (e) {
+      var L = layout();
+      var rect = canvasHost.getBoundingClientRect();
+      var px = e.clientX - rect.left, py = e.clientY - rect.top;
+      var rod = Math.floor((px - L.innerX) / L.colW);
+      if (rod < 0 || rod >= RODS) return;
+      if (py < L.beamY) {
+        heaven[rod] = !heaven[rod];
+      } else {
+        // Find which earth bead was hit at its *current* position, then set
+        // the count so that bead ends up against the beam — the beads in
+        // front of it come along, exactly as they must on a real rod.
+        var hit = -1, best = 1e9;
+        for (var b = 0; b < EARTH; b++) {
+          var by = earthTargetY(L, b, earth[rod]);
+          var d = Math.abs(py - by);
+          if (d < L.beadH * 0.75 && d < best) { best = d; hit = b; }
+        }
+        if (hit < 0) return;
+        earth[rod] = hit < earth[rod] ? hit : hit + 1;
+      }
+      refresh();
+    });
+
+    var c = makeCanvas(canvasHost);
+    var ctx = c.ctx;
+
+    // A biconical bead, as turned on a lathe: two cones meeting at a ridge.
+    function bead(cx, cy, w, h, lit) {
+      var hw = w / 2, hh = h / 2;
+      var g = ctx.createLinearGradient(cx - hw, cy, cx + hw, cy);
+      g.addColorStop(0, lit ? "#7a3b18" : "#5d3517");
+      g.addColorStop(0.34, lit ? "#c8763c" : "#9c5c2c");
+      g.addColorStop(0.52, lit ? "#e6a068" : "#b87742");
+      g.addColorStop(1, lit ? "#5e2c11" : "#4a2a12");
+      ctx.beginPath();
+      ctx.moveTo(cx - hw, cy);
+      ctx.lineTo(cx - hw * 0.42, cy - hh);
+      ctx.lineTo(cx + hw * 0.42, cy - hh);
+      ctx.lineTo(cx + hw, cy);
+      ctx.lineTo(cx + hw * 0.42, cy + hh);
+      ctx.lineTo(cx - hw * 0.42, cy + hh);
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(30,14,4,.6)";
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+      // the ridge where the two cones meet
+      ctx.beginPath();
+      ctx.moveTo(cx - hw, cy);
+      ctx.lineTo(cx + hw, cy);
+      ctx.strokeStyle = "rgba(255,220,180,.28)";
+      ctx.stroke();
+    }
+
+    function frame() {
+      var L = layout();
+      ctx.clearRect(0, 0, L.w, L.h);
+
+      // hardwood frame
+      var fg = ctx.createLinearGradient(0, L.y, 0, L.y + L.fh);
+      fg.addColorStop(0, "#6b4522");
+      fg.addColorStop(0.5, "#8a5c30");
+      fg.addColorStop(1, "#5a3819");
+      ctx.fillStyle = fg;
+      ctx.fillRect(L.x, L.y, L.fw, L.fh);
+      ctx.strokeStyle = "rgba(20,10,2,.7)";
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(L.x + 0.5, L.y + 0.5, L.fw - 1, L.fh - 1);
+      // grain
+      ctx.strokeStyle = "rgba(40,20,6,.16)";
+      ctx.lineWidth = 0.7;
+      for (var gI = 0; gI < 14; gI++) {
+        var gy2 = L.y + (gI + 0.5) * (L.fh / 14);
+        ctx.beginPath();
+        ctx.moveTo(L.x + 2, gy2);
+        ctx.bezierCurveTo(L.x + L.fw * 0.3, gy2 + 2.5, L.x + L.fw * 0.7, gy2 - 2.5, L.x + L.fw - 2, gy2);
+        ctx.stroke();
+      }
+      // recessed interior
+      ctx.fillStyle = "#2a1a0c";
+      ctx.fillRect(L.innerX, L.innerY, L.innerW, L.innerH);
+
+      // rods
+      for (var r = 0; r < RODS; r++) {
+        var cx = L.innerX + (r + 0.5) * L.colW;
+        var rg = ctx.createLinearGradient(cx - 2, 0, cx + 2, 0);
+        rg.addColorStop(0, "#6a6055");
+        rg.addColorStop(0.5, "#cfc4b0");
+        rg.addColorStop(1, "#6a6055");
+        ctx.fillStyle = rg;
+        ctx.fillRect(cx - 1.5, L.innerY, 3, L.innerH);
+      }
+
+      // beads below the beam first, then the beam, then heaven beads
+      var beadW = Math.min(L.colW * 0.82, L.beadH * 1.9);
+      for (var r2 = 0; r2 < RODS; r2++) {
+        var cx2 = L.innerX + (r2 + 0.5) * L.colW;
+        for (var b2 = 0; b2 < EARTH; b2++) {
+          var ty = earthTargetY(L, b2, earth[r2]);
+          if (!earthPos[r2][b2]) earthPos[r2][b2] = ty;
+          earthPos[r2][b2] += (ty - earthPos[r2][b2]) * 0.34;
+          bead(cx2, earthPos[r2][b2], beadW, L.beadH * 0.92, b2 < earth[r2]);
+        }
+      }
+
+      // reckoning beam, with unit dots every third rod
+      var bg = ctx.createLinearGradient(0, L.beamY, 0, L.beamY + L.beamH);
+      bg.addColorStop(0, "#7d5028");
+      bg.addColorStop(1, "#4e3016");
+      ctx.fillStyle = bg;
+      ctx.fillRect(L.innerX, L.beamY, L.innerW, L.beamH);
+      ctx.strokeStyle = "rgba(20,10,2,.6)";
+      ctx.lineWidth = 0.8;
+      ctx.strokeRect(L.innerX + 0.5, L.beamY + 0.5, L.innerW - 1, L.beamH - 1);
+      for (var d2 = RODS - 1; d2 >= 0; d2 -= 3) {
+        ctx.beginPath();
+        ctx.arc(L.innerX + (d2 + 0.5) * L.colW, L.beamY + L.beamH / 2, Math.max(1, L.beamH * 0.17), 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(255,225,190,.7)";
+        ctx.fill();
+      }
+
+      for (var r3 = 0; r3 < RODS; r3++) {
+        var cx3 = L.innerX + (r3 + 0.5) * L.colW;
+        var hy = heavenTargetY(L, heaven[r3]);
+        if (!heavenPos[r3]) heavenPos[r3] = hy;
+        heavenPos[r3] += (hy - heavenPos[r3]) * 0.34;
+        bead(cx3, heavenPos[r3], beadW, L.beadH * 0.92, heaven[r3]);
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    refresh();
   }
 
   // ---------------------------------------------------------------
