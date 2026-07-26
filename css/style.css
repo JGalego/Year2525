@@ -357,6 +357,13 @@ body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05r
   height: clamp(140px, 24vw, 220px);
   margin: 0 0 2.5rem;
   color: var(--accent);
+  position: relative;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  background:
+    radial-gradient(circle at 20% 18%, color-mix(in srgb, var(--accent2) 26%, transparent), transparent 38%),
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 18px 40px rgba(0,0,0,0.18);
   transition: var(--transition-era);
 }
 .era-art svg { display: block; width: 100%; height: 100%; overflow: visible; }
@@ -410,13 +417,13 @@ body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05r
   margin-top: 2.5rem;
   border-radius: var(--radius);
   border: 1px dashed var(--accent);
-  padding: 1.5rem;
+  padding: clamp(1rem, 2vw, 1.5rem);
   background: rgba(94,230,200,0.04);
 }
 .interactive-label { font-family: var(--font-display); font-size: .95rem; margin-bottom: 1rem; }
 .interactive-label strong { color: var(--accent); }
 .widget-surface {
-  min-height: 220px;
+  min-height: clamp(180px, 34vw, 220px);
   border-radius: 8px;
   background: rgba(0,0,0,0.25);
   position: relative;
@@ -430,6 +437,7 @@ body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05r
 
 .cg-controls button:disabled { opacity: .35; cursor: default; }
 .cg-controls button:not(:disabled):hover { border-color: var(--accent); }
+.cg-controls button:not(:disabled):active { transform: scale(0.98); }
 
 .changelog {
   margin-top: 2rem;
@@ -676,6 +684,31 @@ body[data-past="presymbolic"] { --bg:#050403; --fg:#c9c2b8; --muted:#6b6459; --a
   margin: 0 auto;
 }
 
+.secret-toast {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 220;
+  max-width: min(30rem, calc(100vw - 2rem));
+  padding: .85rem 1rem;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg2) 88%, black 12%);
+  color: var(--fg);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.28);
+  font-family: var(--font-display);
+  font-size: .9rem;
+  line-height: 1.45;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .22s ease, transform .22s ease;
+}
+
+.secret-toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 /* ---------------------------- utility ---------------------------- */
 
 [hidden] { display: none !important; }
@@ -683,4 +716,13 @@ body[data-past="presymbolic"] { --bg:#050403; --fg:#c9c2b8; --muted:#6b6459; --a
 @media (max-width: 600px) {
   .era { padding: 6rem 1.1rem 3.5rem; }
   .example-card, .callout, .historical-note { padding: 1.1rem; }
+  .widget-surface { min-height: 200px; }
+  .cg-controls button { min-height: 2rem; }
+  .secret-toast {
+    left: 1rem;
+    right: 1rem;
+    bottom: .9rem;
+    max-width: none;
+    font-size: .85rem;
+  }
 }

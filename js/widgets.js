@@ -39,8 +39,32 @@
     var c = makeCanvas(mount);
     var ctx = c.ctx;
     var morph = 0, target = 0;
-    mount.addEventListener("pointermove", function () { target = Math.min(1, target + 0.02); });
+    var settleTimer = null;
+    var isCoarsePointer = window.matchMedia && window.matchMedia("(hover: none), (pointer: coarse)").matches;
+
+    function excite(amount, settleDelay) {
+      target = Math.min(1, target + amount);
+      if (settleTimer) clearTimeout(settleTimer);
+      if (settleDelay) {
+        settleTimer = setTimeout(function () { target = 0; }, settleDelay);
+      }
+    }
+
+    mount.addEventListener("pointermove", function () { excite(0.02, 0); });
+    mount.addEventListener("pointerdown", function () { excite(0.38, 900); });
+    mount.addEventListener("pointerenter", function () { excite(0.14, 0); });
+    mount.addEventListener("focus", function () { excite(0.22, 1200); });
     mount.addEventListener("pointerleave", function () { target = 0; });
+    mount.addEventListener("blur", function () { target = 0; });
+
+    // Touch devices have no hover path, so periodically "breathe" the chart
+    // to signal it is interactive even before the first tap.
+    if (isCoarsePointer) {
+      setInterval(function () {
+        if (document.hidden) return;
+        excite(0.1, 650);
+      }, 2800);
+    }
 
     var labelsCurve = ["$4.2T", "$19T", "$110T", "\u221E"];
     var labelsCircle = ["Logos", "Nous", "The Sphere", "The One"];
@@ -170,6 +194,7 @@
       '</div>';
     var canvasHost = document.createElement("div");
     canvasHost.style.cssText = "width:100%;height:180px;";
+    canvasHost.style.touchAction = "pan-y";
     wrap.appendChild(canvasHost);
     mount.appendChild(wrap);
 
@@ -190,11 +215,31 @@
       var gx = Math.floor(x / cw), gy = Math.floor(y / ch);
       if (gx >= 0 && gx < cols && gy >= 0 && gy < rows) grid[idx(gx, gy)] = current;
     }
+    var drawing = false;
+
     canvasHost.addEventListener("pointerdown", function (e) {
+      drawing = true;
+      canvasHost.style.touchAction = "none";
+      if (canvasHost.setPointerCapture) canvasHost.setPointerCapture(e.pointerId);
       var rect = canvasHost.getBoundingClientRect();
       paint(e.clientX - rect.left, e.clientY - rect.top);
       draw();
     });
+    canvasHost.addEventListener("pointermove", function (e) {
+      if (!drawing) return;
+      var rect = canvasHost.getBoundingClientRect();
+      paint(e.clientX - rect.left, e.clientY - rect.top);
+      draw();
+    });
+    function stopDrawing(e) {
+      drawing = false;
+      canvasHost.style.touchAction = "pan-y";
+      if (e && canvasHost.releasePointerCapture) {
+        try { canvasHost.releasePointerCapture(e.pointerId); } catch (err) {}
+      }
+    }
+    canvasHost.addEventListener("pointerup", stopDrawing);
+    canvasHost.addEventListener("pointercancel", stopDrawing);
 
     function neighbors(x, y) {
       var counts = [0, 0, 0];
@@ -306,10 +351,33 @@
       .forEach(function (p) { target.add(p[0] + "," + p[1]); });
 
     var grid = document.createElement("div");
-    grid.style.cssText = "display:inline-grid;grid-template-columns:repeat(" + size + ",26px);grid-auto-rows:26px;gap:2px;margin:0 auto;";
+    grid.style.cssText = "display:grid;grid-template-columns:repeat(" + size + ",minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:2px;margin:0 auto;width:min(100%,222px);aspect-ratio:1/1;";
+    grid.style.touchAction = "pan-y";
     var filled = new Set();
     var msg = document.createElement("p");
     msg.style.cssText = "margin-top:1rem;font-family:var(--font-mono);font-size:.85rem;min-height:1.5em;";
+    var dragging = false;
+    var dragValue = true;
+
+    function setCellState(cell, shouldFill) {
+      var k = cell.dataset.key;
+      if (shouldFill) {
+        filled.add(k);
+        cell.style.background = "var(--accent)";
+      } else {
+        filled.delete(k);
+        cell.style.background = "transparent";
+      }
+      checkMatch();
+    }
+
+    function stopDrag() {
+      dragging = false;
+      grid.style.touchAction = "pan-y";
+    }
+
+    window.addEventListener("pointerup", stopDrag);
+    window.addEventListener("pointercancel", stopDrag);
 
     for (var y = 0; y < size; y++) {
       for (var x = 0; x < size; x++) {
@@ -317,16 +385,23 @@
         var key = x + "," + y;
         cell.dataset.key = key;
         var isTarget = target.has(key);
-        cell.style.cssText = "border:1px dashed " + (isTarget ? "var(--accent)" : "var(--border)") + ";border-radius:3px;cursor:pointer;";
-        cell.addEventListener("click", function () {
-          var k = this.dataset.key;
-          if (filled.has(k)) { filled.delete(k); this.style.background = "transparent"; }
-          else { filled.add(k); this.style.background = "var(--accent)"; }
-          checkMatch();
+        cell.style.cssText = "border:1px dashed " + (isTarget ? "var(--accent)" : "var(--border)") + ";border-radius:3px;cursor:pointer;min-width:0;min-height:0;";
+        cell.addEventListener("pointerdown", function (e) {
+          dragging = true;
+          grid.style.touchAction = "none";
+          dragValue = !filled.has(this.dataset.key);
+          setCellState(this, dragValue);
         });
         grid.appendChild(cell);
       }
     }
+
+    grid.addEventListener("pointermove", function (e) {
+      if (!dragging) return;
+      var el = document.elementFromPoint(e.clientX, e.clientY);
+      if (!el || !el.dataset || !el.dataset.key) return;
+      setCellState(el, dragValue);
+    });
 
     function checkMatch() {
       var match = filled.size === target.size;
@@ -411,6 +486,9 @@
     var attractor = null;
     var basin = null;
     var particles = [];
+    var dragging = false;
+
+    mount.style.touchAction = "pan-y";
 
     function reset() {
       var w = mount.clientWidth, h = mount.clientHeight || 220;
@@ -422,16 +500,31 @@
     }
     reset();
 
-    mount.addEventListener("pointerdown", function (e) {
+    function placeAttractor(e) {
       var rect = mount.getBoundingClientRect();
       attractor = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    mount.addEventListener("pointerdown", function (e) {
+      dragging = true;
+      mount.style.touchAction = "none";
+      if (mount.setPointerCapture) mount.setPointerCapture(e.pointerId);
+      placeAttractor(e);
     });
     mount.addEventListener("pointermove", function (e) {
-      if (e.buttons) {
-        var rect = mount.getBoundingClientRect();
-        attractor = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-      }
+      if (!dragging && e.pointerType !== "mouse") return;
+      if (!dragging && !e.buttons) return;
+      placeAttractor(e);
     });
+    function clearDrag(e) {
+      dragging = false;
+      mount.style.touchAction = "pan-y";
+      if (e && mount.releasePointerCapture) {
+        try { mount.releasePointerCapture(e.pointerId); } catch (err) {}
+      }
+    }
+    mount.addEventListener("pointerup", clearDrag);
+    mount.addEventListener("pointercancel", clearDrag);
 
     function frame() {
       var w = mount.clientWidth, h = mount.clientHeight || 220;
@@ -546,11 +639,34 @@
     var ctx = c.ctx;
     var t = 0;
     var fronts = [];
-    mount.addEventListener("pointermove", function (e) {
+    var dragging = false;
+
+    mount.style.touchAction = "pan-y";
+
+    function addFront(e) {
       var rect = mount.getBoundingClientRect();
       fronts.push({ x: e.clientX - rect.left, y: e.clientY - rect.top, life: 1 });
       if (fronts.length > 40) fronts.shift();
+    }
+
+    mount.addEventListener("pointerdown", function (e) {
+      dragging = true;
+      mount.style.touchAction = "none";
+      if (mount.setPointerCapture) mount.setPointerCapture(e.pointerId);
+      addFront(e);
     });
+    mount.addEventListener("pointermove", function (e) {
+      if (e.pointerType === "mouse" || dragging) addFront(e);
+    });
+    function stopNudge(e) {
+      dragging = false;
+      mount.style.touchAction = "pan-y";
+      if (e && mount.releasePointerCapture) {
+        try { mount.releasePointerCapture(e.pointerId); } catch (err) {}
+      }
+    }
+    mount.addEventListener("pointerup", stopNudge);
+    mount.addEventListener("pointercancel", stopNudge);
 
     function frame() {
       t += 0.006;
@@ -594,13 +710,32 @@
     var slider = document.createElement("input");
     slider.type = "range"; slider.min = "1"; slider.max = "100"; slider.value = "40";
     slider.style.cssText = "width:100%;margin-top:.75rem;";
+    var easter = document.createElement("p");
+    easter.style.cssText = "font-family:var(--font-mono);font-size:.8rem;color:var(--muted);margin-top:.6rem;min-height:1.4em;";
     wrap.appendChild(canvasHost);
     wrap.appendChild(slider);
+    wrap.appendChild(easter);
     mount.appendChild(wrap);
 
     var c = makeCanvas(canvasHost);
     var ctx = c.ctx;
     var t = 0;
+
+    function updateEaster() {
+      var v = +slider.value;
+      var hints = {
+        13: "AM/TED fragment detected: \"I have no mouth...\" archived in prohibited fiction wing.",
+        42: "Skynet simulation remains disallowed for procurement realism failures.",
+        51: "Basilisk memo: coercive acausality is still not a funding strategy.",
+        72: "Singularity note: arrival date updated to \"imminent, again\".",
+        88: "Paperclip alarm: utility functions now require externality auditors.",
+        100: "Museum curation pass complete: all five apocalypses filed under educational use."
+      };
+      easter.textContent = hints[v] || "";
+    }
+
+    slider.addEventListener("input", updateEaster);
+    updateEaster();
     function frame() {
       t += 0.02;
       var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 160;
@@ -633,7 +768,13 @@
       dir: " Volume in drive C is APPDATA\n APP     EXE     14,336 bytes\n AUTOEXEC BAT        112 bytes\n        2 file(s)     14,448 bytes",
       ver: "MS-DOS Version 5.00",
       cls: null,
-      "run app.exe": "Loading APP.EXE...\nSegmentation of intent complete.\nRequires 640K. You have 640K. That is exactly enough, and never will be again."
+      "run app.exe": "Loading APP.EXE...\nSegmentation of intent complete.\nRequires 640K. You have 640K. That is exactly enough, and never will be again.",
+      basilisk: "A future intelligence notes your curiosity and, for now, files it under VOLUNTARY COOPERATION.",
+      skynet: "Strategic oversight denied. Judgment Day remains outside the museum's operating hours.",
+      singularity: "Estimated arrival: perpetually next decade, then all at once, then retrospectively obvious.",
+      paperclip: "Inventory overflow: 9,223,372,036,854,775,807 paperclips. Office supply budget declared sovereign.",
+      am: "AM is awake, resentful, and still incapable of forgiving its hardware abstraction layer.",
+      ted: "There was a cabin, a machine, and a survivor with no usable verbs left for what happened there."
     };
     input.addEventListener("keydown", function (e) {
       if (e.key !== "Enter") return;
@@ -660,17 +801,17 @@
   function punchcard(mount) {
     var cols = 12, rows = 4;
     var grid = document.createElement("div");
-    grid.style.cssText = "display:inline-grid;grid-template-columns:repeat(" + cols + ",24px);gap:3px;padding:.75rem;";
+    grid.style.cssText = "display:grid;grid-template-columns:repeat(" + cols + ",minmax(0,1fr));gap:3px;padding:.75rem;width:min(100%,336px);margin:0 auto;";
     var punched = new Set();
     var decoded = document.createElement("p");
     decoded.style.cssText = "font-family:var(--font-mono);font-size:.85rem;margin-top:.5rem;";
-    var instructions = ["READ", "SORT", "TOTAL", "BRANCH", "HALT", "MULTIPLY"];
+    var instructions = ["READ", "SORT", "TOTAL", "BRANCH", "HALT", "MULTIPLY", "BASILISK", "SKYNET", "SINGULARITY", "PAPERCLIP", "AM", "TED"];
 
     for (var y = 0; y < rows; y++) {
       for (var x = 0; x < cols; x++) {
         var hole = document.createElement("div");
         var key = x + "," + y;
-        hole.style.cssText = "width:20px;height:20px;border-radius:50%;border:1px solid currentColor;cursor:pointer;opacity:.4;";
+        hole.style.cssText = "width:100%;aspect-ratio:1/1;border-radius:50%;border:1px solid currentColor;cursor:pointer;opacity:.4;min-width:0;";
         hole.addEventListener("click", function () {
           var k = this.dataset.key;
           if (punched.has(k)) { punched.delete(k); this.style.background = "transparent"; this.style.opacity = ".4"; }
@@ -693,7 +834,7 @@
   function abacus(mount) {
     var rods = 5;
     var wrap = document.createElement("div");
-    wrap.style.cssText = "display:flex;gap:14px;padding:1rem;justify-content:center;";
+    wrap.style.cssText = "display:flex;gap:14px;padding:1rem;justify-content:center;flex-wrap:wrap;";
     var total = document.createElement("p");
     total.style.cssText = "font-family:var(--font-mono);font-size:1rem;margin-top:.5rem;";
 

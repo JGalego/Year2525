@@ -6,12 +6,46 @@
   var pastMain = document.getElementById("past-timeline");
   var yearCounter = document.getElementById("year-counter");
   var dotnav = document.getElementById("dotnav");
+  var logo = document.querySelector(".logo");
 
   var YEAR_BY_ERA = {
     present: "2026", "2525": "2525", "3535": "3535", "4545": "4545",
     "5555": "5555", "6565": "6565", "7510": "7510", "8525": "8525",
     "9595": "9595", beyond: "12,525"
   };
+
+  var SECRET_MESSAGES = {
+    basilisk: "Roko's basilisk remains archived under speculative coercion hazards.",
+    skynet: "Skynet is filed as a recurring case of military procurement mistaking autonomy for governance.",
+    singularity: "The singularity exhibit keeps moving rooms because every century insists it has almost arrived.",
+    paperclip: "Paperclip maximizers are now taught in kindergarten as the reason objective functions need adults in the room.",
+    am: "AM receives a placard note: immense power, terminal resentment, zero bedside manner.",
+    ted: "Ted's caption is brief: survivor testimony remains the only interface left after certain machines finish speaking."
+  };
+
+  var secretToast = document.createElement("div");
+  secretToast.className = "secret-toast";
+  secretToast.setAttribute("aria-live", "polite");
+  secretToast.hidden = true;
+  body.appendChild(secretToast);
+
+  var secretBuffer = "";
+  var secretTimer = null;
+
+  function showSecret(message) {
+    secretToast.textContent = message;
+    secretToast.hidden = false;
+    secretToast.classList.add("visible");
+    clearTimeout(secretTimer);
+    secretTimer = setTimeout(function () {
+      secretToast.classList.remove("visible");
+      setTimeout(function () { secretToast.hidden = true; }, 260);
+    }, 3600);
+  }
+
+  function registerSecretToken(token) {
+    if (SECRET_MESSAGES[token]) showSecret(SECRET_MESSAGES[token]);
+  }
 
   // ---------------------------------------------------------------
   // Mode switching: Forward Timeline <-> Past Lightcone
@@ -91,6 +125,16 @@
     } else {
       konamiProgress = (e.key === KONAMI[0]) ? 1 : 0;
     }
+
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    var tag = e.target && e.target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || (e.target && e.target.isContentEditable)) return;
+    if (!/^[a-zA-Z]$/.test(e.key)) return;
+
+    secretBuffer = (secretBuffer + e.key.toLowerCase()).slice(-24);
+    Object.keys(SECRET_MESSAGES).forEach(function (token) {
+      if (secretBuffer.slice(-token.length) === token) registerSecretToken(token);
+    });
   });
 
   // Escape always returns to the future (unless Presenter Mode is handling it).
@@ -108,6 +152,13 @@
     clearTimeout(armTimer);
     if (body.dataset.mode !== "past") yearCounter.classList.remove("armed");
   });
+
+  if (logo) {
+    logo.addEventListener("dblclick", function (e) {
+      e.preventDefault();
+      showSecret("Museum marginalia unlocked. Try typing basilisk, skynet, singularity, paperclip, am, or ted.");
+    });
+  }
 
   // ---------------------------------------------------------------
   // Scroll-driven era theming + nav state
