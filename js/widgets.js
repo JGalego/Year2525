@@ -1920,6 +1920,1144 @@
   }
 
   // ---------------------------------------------------------------
+  // Past — Quipu (knotted rope)
+  // ---------------------------------------------------------------
+  // Real khipu encoding: base ten, read top to bottom, with the power of
+  // ten decreasing down the cord. Tens and above are clusters of simple
+  // overhand knots; the units position is a long knot of N turns, except
+  // for 1, which can't be a long knot and is tied as a figure-eight. Zero
+  // is an empty space at that level — a positional zero, on string,
+  // centuries before it reached European arithmetic on paper.
+  function quipuKnots(mount) {
+    var BANDS = [1000, 100, 10, 1];
+    var CORDS = [
+      { label: "maize", color: "#e8c98a", d: [0, 2, 4, 3] },
+      { label: "beans", color: "#c98a5a", d: [0, 1, 0, 7] },
+      { label: "llamas", color: "#a9b7a0", d: [0, 0, 8, 1] },
+      { label: "cloth", color: "#c49bc4", d: [0, 3, 2, 0] }
+    ];
+
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;padding:.4rem;text-align:left;";
+    var bar = controlBar();
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:250px;";
+    canvasHost.style.touchAction = "pan-y";
+    var status = statusLine(2.8);
+    wrap.appendChild(bar);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(status);
+    mount.appendChild(wrap);
+
+    function valueOf(c) { return c.d.reduce(function (a, dg, i) { return a + dg * BANDS[i]; }, 0); }
+    function total() { return CORDS.reduce(function (a, c) { return a + valueOf(c); }, 0); }
+    function refresh() {
+      status.innerHTML = CORDS.map(function (c) {
+        return '<span style="color:' + c.color + '">' + c.label + " " + valueOf(c) + "</span>";
+      }).join(" &nbsp;·&nbsp; ") + "<br>Top cord carries the sum: <b>" + total() +
+        "</b> — read with the fingers, in the dark, by anyone trained to it.";
+    }
+
+    ctlButton(bar, "Clear", "Untie every knot", function () {
+      CORDS.forEach(function (c) { c.d = [0, 0, 0, 0]; });
+      refresh();
+    });
+    var hint = document.createElement("span");
+    hint.style.cssText = "font-size:.72rem;color:var(--muted);";
+    hint.textContent = "tap a cord at a level to add a knot · 1000s at the top, units at the bottom";
+    spacer(bar);
+    bar.appendChild(hint);
+
+    function layout() {
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 250;
+      return { w: w, h: h, topY: 30, bandY: [66, 110, 154, 200], x0: w * 0.26, gap: (w * 0.66) / (CORDS.length - 1) };
+    }
+
+    canvasHost.addEventListener("pointerdown", function (e) {
+      var L = layout();
+      var r = canvasHost.getBoundingClientRect();
+      var px = e.clientX - r.left, py = e.clientY - r.top;
+      var ci = Math.round((px - L.x0) / L.gap);
+      if (ci < 0 || ci >= CORDS.length) return;
+      if (Math.abs(px - (L.x0 + ci * L.gap)) > L.gap * 0.42) return;
+      var bi = -1, best = 30;
+      L.bandY.forEach(function (by, i) {
+        var d = Math.abs(py - by);
+        if (d < best) { best = d; bi = i; }
+      });
+      if (bi < 0) return;
+      CORDS[ci].d[bi] = (CORDS[ci].d[bi] + 1) % 10;
+      refresh();
+    });
+
+    var c = makeCanvas(canvasHost);
+    var ctx = c.ctx;
+
+    function cordLine(x, y0, y1, color, wdt) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = wdt;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(x, y0);
+      ctx.bezierCurveTo(x + 1.5, y0 + (y1 - y0) * 0.4, x - 1.5, y0 + (y1 - y0) * 0.7, x, y1);
+      ctx.stroke();
+    }
+    function simpleKnot(x, y, color) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(x, y, 5, 3.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.35)";
+      ctx.lineWidth = 0.7;
+      ctx.stroke();
+    }
+    function figureEight(x, y, color) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.ellipse(x, y - 3, 4, 3, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.ellipse(x, y + 3, 4, 3, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    // One knot, wrapped N times — not N knots. That distinction is the
+    // whole reason the units position can be told apart by touch from the
+    // tens position above it.
+    function longKnot(x, y, turns, color) {
+      var hgt = turns * 4.2;
+      var top = y - hgt / 2, bot = y + hgt / 2;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x - 5.4, top, 10.8, hgt, 5);
+      else ctx.rect(x - 5.4, top, 10.8, hgt);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,.45)";
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+      // the ridges of the individual turns, running across the coil
+      ctx.strokeStyle = "rgba(0,0,0,.4)";
+      ctx.lineWidth = 1;
+      for (var t = 1; t < turns; t++) {
+        var yy = top + t * (hgt / turns);
+        ctx.beginPath();
+        ctx.moveTo(x - 5, yy - 1.1);
+        ctx.lineTo(x + 5, yy + 1.1);
+        ctx.stroke();
+      }
+    }
+
+    function frame() {
+      var L = layout();
+      ctx.clearRect(0, 0, L.w, L.h);
+      var muted = cssVar("--muted", "#c2a578");
+
+      // primary cord, running across the top
+      ctx.strokeStyle = "#8a6a45";
+      ctx.lineWidth = 6;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(L.w * 0.06, L.topY);
+      ctx.bezierCurveTo(L.w * 0.3, L.topY - 5, L.w * 0.7, L.topY + 5, L.w * 0.96, L.topY);
+      ctx.stroke();
+
+      // level guides
+      ctx.font = "9px ui-monospace, monospace";
+      ctx.fillStyle = muted;
+      ctx.globalAlpha = 0.7;
+      L.bandY.forEach(function (by, i) {
+        ctx.fillText(String(BANDS[i]), 4, by + 3);
+        ctx.strokeStyle = "rgba(255,255,255,.06)";
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(34, by); ctx.lineTo(L.w - 6, by); ctx.stroke();
+      });
+      ctx.globalAlpha = 1;
+
+      // the summation cord, hanging on the far left, not editable
+      var sx = L.w * 0.1;
+      cordLine(sx, L.topY, L.h - 16, "#d9c39a", 3.4);
+      var sumDigits = String(total()).padStart(4, "0").split("").map(Number);
+      sumDigits.forEach(function (dg, i) {
+        drawBand(sx, L.bandY[i], dg, i === 3, "#f0e2c0");
+      });
+      ctx.fillStyle = muted;
+      ctx.font = "9px ui-monospace, monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("SUM", sx, L.h - 4);
+
+      CORDS.forEach(function (cd, i) {
+        var x = L.x0 + i * L.gap;
+        cordLine(x, L.topY, L.h - 16, cd.color, 3);
+        cd.d.forEach(function (dg, bi) { drawBand(x, L.bandY[bi], dg, bi === 3, cd.color); });
+        ctx.fillStyle = cd.color;
+        ctx.fillText(cd.label, x, L.h - 4);
+      });
+      ctx.textAlign = "left";
+      requestAnimationFrame(frame);
+    }
+    function drawBand(x, y, digit, isUnits, color) {
+      if (digit === 0) return;
+      if (isUnits) {
+        if (digit === 1) figureEight(x, y, color);
+        else longKnot(x, y, digit, color);
+      } else {
+        var spread = Math.min(7, 26 / digit);
+        var startY = y - ((digit - 1) * spread) / 2;
+        for (var k = 0; k < digit; k++) simpleKnot(x, startY + k * spread, color);
+      }
+    }
+    requestAnimationFrame(frame);
+    refresh();
+  }
+
+  // ---------------------------------------------------------------
+  // Past — Clay tablet (Sumerian ledger)
+  // ---------------------------------------------------------------
+  // Sexagesimal, as actually written: a vertical wedge for one, a
+  // winkelhaken (corner wedge) for ten, clustered up to 59, then a new
+  // place to the left worth sixty. The tablet stays editable only while
+  // the clay is damp — which is the whole reason this exhibit has a Fire
+  // button and no undo after it.
+  function clayTablet(mount) {
+    var ROWS = [
+      { label: "grain (sila)", v: 0 },
+      { label: "beer (jugs)", v: 0 },
+      { label: "sheep", v: 0 }
+    ];
+    var stylus = 1;
+    var fired = false;
+
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;padding:.4rem;text-align:left;";
+    var bar = controlBar();
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:210px;";
+    canvasHost.style.touchAction = "pan-y";
+    var status = statusLine(2.8);
+    wrap.appendChild(bar);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(status);
+    mount.appendChild(wrap);
+
+    function sexagesimal(n) {
+      if (n === 0) return "0";
+      var parts = [];
+      while (n > 0) { parts.unshift(n % 60); n = Math.floor(n / 60); }
+      return parts.join(",") + " (base 60)";
+    }
+    function refresh() {
+      status.innerHTML = ROWS.map(function (r) {
+        return r.label + " <b>" + r.v + "</b> <span style='opacity:.6'>= " + sexagesimal(r.v) + "</span>";
+      }).join("<br>") + (fired ? '<br><span style="color:#8a3b12;">Fired. The ledger is permanent now — and permanently wrong, if it was wrong.</span>' : "");
+    }
+
+    var unitBtn = ctlButton(bar, "❘ one", "Impress a vertical wedge — worth one", function () {
+      stylus = 1; setActive(unitBtn, true); setActive(tenBtn, false);
+    });
+    var tenBtn = ctlButton(bar, "‹ ten", "Impress a winkelhaken — worth ten", function () {
+      stylus = 10; setActive(unitBtn, false); setActive(tenBtn, true);
+    });
+    setActive(unitBtn, true);
+    spacer(bar);
+    ctlButton(bar, "Smooth", "Wipe the damp clay flat again", function () {
+      if (fired) { refresh(); return; }
+      ROWS.forEach(function (r) { r.v = 0; });
+      refresh();
+    });
+    var fireBtn = ctlButton(bar, "Fire", "Bake the tablet. There is no editing a fired tablet.", function () {
+      fired = true;
+      fireBtn.disabled = true;
+      refresh();
+    });
+
+    function layout() {
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 210;
+      var tw = Math.min(w - 8, 520), th = Math.min(h - 8, 196);
+      return { w: w, h: h, x: (w - tw) / 2, y: (h - th) / 2, tw: tw, th: th, rowH: th / 3.4 };
+    }
+    canvasHost.addEventListener("pointerdown", function (e) {
+      if (fired) { refresh(); return; }
+      var L = layout();
+      var r = canvasHost.getBoundingClientRect();
+      var py = e.clientY - r.top;
+      var idx = Math.floor((py - (L.y + L.th * 0.12)) / L.rowH);
+      if (idx < 0 || idx >= ROWS.length) return;
+      ROWS[idx].v = Math.min(3599, ROWS[idx].v + stylus);
+      refresh();
+    });
+
+    var c = makeCanvas(canvasHost);
+    var ctx = c.ctx;
+
+    // A vertical wedge: the triangular head the stylus leaves, plus its tail.
+    function unitWedge(x, y, s, ink) {
+      ctx.fillStyle = ink;
+      ctx.beginPath();
+      ctx.moveTo(x - s * 0.30, y - s * 0.34);
+      ctx.lineTo(x + s * 0.30, y - s * 0.34);
+      ctx.lineTo(x, y + s * 0.16);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillRect(x - s * 0.05, y + s * 0.06, s * 0.1, s * 0.34);
+    }
+    // A winkelhaken: the corner impression, made with the stylus turned.
+    function tenWedge(x, y, s, ink) {
+      ctx.fillStyle = ink;
+      ctx.beginPath();
+      ctx.moveTo(x - s * 0.5, y - s * 0.34);
+      ctx.lineTo(x + s * 0.34, y - s * 0.1);
+      ctx.lineTo(x - s * 0.2, y + s * 0.44);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function frame() {
+      var L = layout();
+      ctx.clearRect(0, 0, L.w, L.h);
+      var clay = fired ? "#a9622f" : "#c39a63";
+      var clay2 = fired ? "#8d4a1f" : "#a97f4a";
+      var ink = fired ? "rgba(50,22,6,.85)" : "rgba(60,38,14,.72)";
+
+      // slab, with a pillowed edge
+      var g = ctx.createLinearGradient(0, L.y, 0, L.y + L.th);
+      g.addColorStop(0, clay);
+      g.addColorStop(1, clay2);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(L.x, L.y, L.tw, L.th, 14);
+      else ctx.rect(L.x, L.y, L.tw, L.th);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(60,34,10,.45)";
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      ctx.font = "10px ui-monospace, monospace";
+      ROWS.forEach(function (row, i) {
+        var ry = L.y + L.th * 0.12 + i * L.rowH + L.rowH * 0.5;
+        ctx.fillStyle = "rgba(50,30,10,.55)";
+        ctx.fillText(row.label, L.x + 12, ry + 3);
+        // ruled divider, as scribes drew
+        ctx.strokeStyle = "rgba(60,34,10,.18)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(L.x + 10, ry + L.rowH * 0.46);
+        ctx.lineTo(L.x + L.tw - 10, ry + L.rowH * 0.46);
+        ctx.stroke();
+
+        // Three wedges must stack inside one ruled row, so the glyph is
+        // sized off the row rather than a fixed maximum.
+        var s = Math.min(14, L.rowH * 0.235);
+        var vgap = s * 1.12;
+        var x = L.x + 128;
+        var sixties = Math.floor(row.v / 60), rest = row.v % 60;
+        var tens = Math.floor(rest / 10), units = rest % 10;
+
+        // Scribes clustered wedges in columns of three, reading left to
+        // right — nine units fit in a 3x3 block before the next place.
+        function cluster(x0, n, size, draw) {
+          var rowsUsed = Math.min(n, 3);
+          for (var q = 0; q < n; q++) {
+            var col = Math.floor(q / 3), rw = q % 3;
+            var inCol = Math.min(3, n - col * 3);
+            draw(x0 + col * size * 1.0,
+                 ry - ((inCol - 1) * vgap) / 2 + rw * vgap, size);
+          }
+          return x0 + Math.ceil(n / 3) * size * 1.0;
+        }
+        if (sixties > 0) {
+          x = cluster(x, Math.min(sixties, 9), s, function (px, py, sz) { unitWedge(px, py, sz, ink); });
+          // the place divider: everything left of it is worth sixty
+          ctx.strokeStyle = "rgba(60,34,10,.3)";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x + s * 0.34, ry - L.rowH * 0.3);
+          ctx.lineTo(x + s * 0.34, ry + L.rowH * 0.3);
+          ctx.stroke();
+          ctx.fillStyle = "rgba(60,34,10,.35)";
+          ctx.fillText("60s", L.x + 128, ry - L.rowH * 0.4);
+          x += s * 0.9;
+        }
+        if (tens > 0) x = cluster(x, tens, s, function (px, py, sz) { tenWedge(px, py, sz, ink); }) + s * 0.5;
+        if (units > 0) cluster(x, units, s, function (px, py, sz) { unitWedge(px, py, sz, ink); });
+      });
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    refresh();
+  }
+
+  // ---------------------------------------------------------------
+  // Past — Babbage's Difference Engine
+  // ---------------------------------------------------------------
+  // The method of finite differences: a polynomial's values can be
+  // produced by addition alone, if you keep a column of differences and
+  // add each into the one above it. That is the entire machine. The
+  // printing apparatus at the bottom is the part Babbage cared most about,
+  // because a table computed correctly and then typeset wrongly is still a
+  // wrecked ship.
+  function babbageEngine(mount) {
+    var POLYS = [
+      { name: "x² + x + 41", f: function (x) { return x * x + x + 41; } },
+      { name: "x³", f: function (x) { return x * x * x; } },
+      { name: "2x² + 3x + 1", f: function (x) { return 2 * x * x + 3 * x + 1; } }
+    ];
+    var poly = POLYS[0];
+    var x = 0, reg = [0, 0, 0, 0], adds = 0, tape = [];
+
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;padding:.4rem;text-align:left;";
+    var bar = controlBar();
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:216px;";
+    var status = statusLine(2.8);
+    wrap.appendChild(bar);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(status);
+    mount.appendChild(wrap);
+
+    function setPoly(p) {
+      poly = p;
+      x = 0; adds = 0; tape = [];
+      // seed the difference columns from the polynomial's first values
+      var f = p.f;
+      reg = [
+        f(0),
+        f(1) - f(0),
+        f(2) - 2 * f(1) + f(0),
+        f(3) - 3 * f(2) + 3 * f(1) - f(0)
+      ];
+      tape.push({ x: 0, v: reg[0] });
+      refresh();
+    }
+    function crank() {
+      // Each column takes the value its neighbour held at the *start* of
+      // the turn, so the additions run top-down. Doing it bottom-up feeds
+      // each freshly-updated difference straight back into the column
+      // above and every value comes out too large. Babbage's answer to the
+      // same hazard was to add the odd and even columns on separate half
+      // turns of the handle.
+      reg[0] += reg[1];
+      reg[1] += reg[2];
+      reg[2] += reg[3];
+      adds += 3;
+      x += 1;
+      tape.push({ x: x, v: reg[0] });
+      if (tape.length > 9) tape.shift();
+      refresh();
+    }
+    function refresh() {
+      var truth = poly.f(x);
+      status.innerHTML = "f(" + x + ") = <b>" + reg[0] + "</b>" +
+        (reg[0] === truth ? "" : ' <span style="color:#a03;">(expected ' + truth + ")</span>") +
+        " &nbsp;·&nbsp; " + adds + " additions, no multiplication anywhere in the mechanism." +
+        "<br>Ada Lovelace's point was that the columns need not hold numbers at all.";
+    }
+
+    POLYS.forEach(function (p) {
+      ctlButton(bar, p.name, "Set the engine's difference columns for " + p.name, function () { setPoly(p); });
+    });
+    spacer(bar);
+    ctlButton(bar, "Crank", "One turn of the handle", crank);
+    ctlButton(bar, "Crank ×10", "Ten turns", function () { for (var i = 0; i < 10; i++) crank(); });
+    ctlButton(bar, "Reset", "Return the columns to their starting values", function () { setPoly(poly); });
+
+    var c = makeCanvas(canvasHost);
+    var ctx = c.ctx;
+
+    function wheelStack(cx, cy, value, label, accent, muted) {
+      var digits = String(Math.abs(value)).split("");
+      if (value < 0) digits.unshift("-");
+      var dw = 15, dh = 21;
+      var totalW = digits.length * dw;
+      ctx.font = "10px ui-monospace, monospace";
+      ctx.fillStyle = muted;
+      ctx.textAlign = "center";
+      ctx.fillText(label, cx, cy - dh * 0.9);
+      digits.forEach(function (d, i) {
+        var dx = cx - totalW / 2 + i * dw;
+        var g = ctx.createLinearGradient(0, cy - dh / 2, 0, cy + dh / 2);
+        g.addColorStop(0, "#3a2c14");
+        g.addColorStop(0.5, "#c9a24b");
+        g.addColorStop(1, "#3a2c14");
+        ctx.fillStyle = g;
+        ctx.fillRect(dx + 1, cy - dh / 2, dw - 2, dh);
+        ctx.strokeStyle = "rgba(0,0,0,.5)";
+        ctx.lineWidth = 0.8;
+        ctx.strokeRect(dx + 1.5, cy - dh / 2 + 0.5, dw - 3, dh - 1);
+        ctx.fillStyle = "#20170a";
+        ctx.font = "bold 13px ui-monospace, monospace";
+        ctx.fillText(d, dx + dw / 2, cy + 5);
+        ctx.font = "10px ui-monospace, monospace";
+      });
+      ctx.textAlign = "left";
+    }
+
+    function frame() {
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 216;
+      ctx.clearRect(0, 0, w, h);
+      var muted = cssVar("--muted", "#a08e6a");
+      var accent = cssVar("--accent", "#c9a24b");
+
+      var labels = ["RESULT f(x)", "Δ1", "Δ2", "Δ3"];
+      var colX = [w * 0.16, w * 0.38, w * 0.56, w * 0.72];
+      var cy = 44;
+      for (var i = 0; i < 4; i++) wheelStack(colX[i], cy, reg[i], labels[i], accent, muted);
+
+      // the gearing that adds each column into the one above it
+      ctx.strokeStyle = "rgba(201,162,75,.5)";
+      ctx.lineWidth = 1;
+      for (var k = 3; k >= 1; k--) {
+        var x1 = colX[k], x0 = colX[k - 1];
+        ctx.beginPath();
+        ctx.moveTo(x1, cy + 18);
+        ctx.bezierCurveTo(x1, cy + 34, x0, cy + 34, x0, cy + 18);
+        ctx.stroke();
+        ctx.fillStyle = "rgba(201,162,75,.75)";
+        ctx.font = "9px ui-monospace, monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("+", (x0 + x1) / 2, cy + 38);
+        ctx.textAlign = "left";
+      }
+
+      // the printing apparatus
+      var py = cy + 56;
+      ctx.fillStyle = "rgba(255,255,255,.05)";
+      ctx.fillRect(w * 0.1, py, w * 0.8, h - py - 8);
+      ctx.strokeStyle = "rgba(255,255,255,.12)";
+      ctx.strokeRect(w * 0.1 + 0.5, py + 0.5, w * 0.8 - 1, h - py - 9);
+      ctx.font = "11px ui-monospace, monospace";
+      ctx.fillStyle = muted;
+      ctx.fillText("PRINTED TABLE", w * 0.1 + 8, py + 14);
+      tape.forEach(function (t, i) {
+        var ty = py + 30 + i * 12;
+        if (ty > h - 12) return;
+        ctx.fillStyle = i === tape.length - 1 ? accent : muted;
+        ctx.fillText("x = " + String(t.x).padStart(2, " ") + "    f(x) = " + t.v, w * 0.1 + 14, ty);
+      });
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    setPoly(POLYS[0]);
+  }
+
+  // ---------------------------------------------------------------
+  // Past — Jacquard loom
+  // ---------------------------------------------------------------
+  // A chain of punched cards, one card per pick of the shuttle. A hole
+  // lets its hook through, so that warp thread lifts and the weft passes
+  // underneath; no hole and the warp stays down. The pattern is not drawn
+  // anywhere — it is a consequence of the holes, which is exactly the idea
+  // Babbage borrowed and Hollerith monetised.
+  function jacquardLoom(mount) {
+    var HOOKS = 12, CARDS = 10, PASSES = 4;
+    var chain = [];
+    for (var i = 0; i < CARDS; i++) chain.push(new Array(HOOKS).fill(0));
+
+    var PRESETS = {
+      Damask: function (c, k) { return ((c + k) % 4 < 2) !== (((c - k) % 6 + 6) % 6 < 3) ? 1 : 0; },
+      Twill: function (c, k) { return ((k + c) % 4 < 2) ? 1 : 0; },
+      Diamond: function (c, k) {
+        var d = Math.abs(k - HOOKS / 2 + 0.5) + Math.abs(c - CARDS / 2 + 0.5);
+        return d < 5 ? 1 : 0;
+      }
+    };
+    function applyPreset(name) {
+      var f = PRESETS[name];
+      for (var c = 0; c < CARDS; c++) for (var k = 0; k < HOOKS; k++) chain[c][k] = f(c, k);
+      refresh();
+    }
+
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;padding:.4rem;text-align:left;";
+    var bar = controlBar();
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:250px;";
+    canvasHost.style.touchAction = "pan-y";
+    var status = statusLine(2.4);
+    wrap.appendChild(bar);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(status);
+    mount.appendChild(wrap);
+
+    function refresh() {
+      var holes = chain.reduce(function (a, c) {
+        return a + c.reduce(function (b, v) { return b + v; }, 0);
+      }, 0);
+      status.innerHTML = CARDS + " cards &nbsp;·&nbsp; " + HOOKS + " hooks &nbsp;·&nbsp; <b>" + holes +
+        "</b> holes punched. The cloth below is not stored anywhere — it is what the holes do.";
+    }
+
+    Object.keys(PRESETS).forEach(function (name) {
+      ctlButton(bar, name, "Punch the " + name.toLowerCase() + " card chain", function () { applyPreset(name); });
+    });
+    spacer(bar);
+    ctlButton(bar, "Blank", "An unpunched chain weaves plain cloth", function () {
+      chain.forEach(function (c) { c.fill(0); });
+      refresh();
+    });
+
+    function layout() {
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 250;
+      var chainH = h * 0.42, gap = 12;
+      return {
+        w: w, h: h, cx: 8, cy: 16, cw: w - 16, chH: chainH - 20,
+        fy: 16 + chainH + gap - 20, fh: h - (16 + chainH + gap - 20) - 18
+      };
+    }
+    canvasHost.addEventListener("pointerdown", function (e) {
+      var L = layout();
+      var r = canvasHost.getBoundingClientRect();
+      var px = e.clientX - r.left, py = e.clientY - r.top;
+      var cardW = L.cw / CARDS, hookH = L.chH / HOOKS;
+      var c = Math.floor((px - L.cx) / cardW), k = Math.floor((py - L.cy) / hookH);
+      if (c < 0 || c >= CARDS || k < 0 || k >= HOOKS) return;
+      chain[c][k] = chain[c][k] ? 0 : 1;
+      refresh();
+    });
+
+    var cv = makeCanvas(canvasHost);
+    var ctx = cv.ctx;
+    function frame() {
+      var L = layout();
+      ctx.clearRect(0, 0, L.w, L.h);
+      var accent = cssVar("--accent", "#d88fd0");
+      var muted = cssVar("--muted", "#b79cc0");
+      var cardW = L.cw / CARDS, hookH = L.chH / HOOKS;
+
+      // the card chain, laced together
+      for (var c = 0; c < CARDS; c++) {
+        var x = L.cx + c * cardW;
+        ctx.fillStyle = "rgba(226,208,170,.82)";
+        ctx.fillRect(x + 1.5, L.cy, cardW - 3, L.chH);
+        ctx.strokeStyle = "rgba(60,40,20,.5)";
+        ctx.lineWidth = 0.8;
+        ctx.strokeRect(x + 1.5, L.cy + 0.5, cardW - 3, L.chH - 1);
+        for (var k = 0; k < HOOKS; k++) {
+          var hy = L.cy + k * hookH;
+          if (chain[c][k]) {
+            ctx.fillStyle = "#1a1020";
+            ctx.fillRect(x + cardW * 0.3, hy + hookH * 0.22, cardW * 0.4, hookH * 0.56);
+          } else {
+            ctx.fillStyle = "rgba(90,70,40,.28)";
+            ctx.beginPath();
+            ctx.arc(x + cardW / 2, hy + hookH / 2, Math.max(0.6, hookH * 0.09), 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        // the lacing between cards
+        if (c < CARDS - 1) {
+          ctx.strokeStyle = "rgba(60,40,20,.45)";
+          ctx.beginPath();
+          ctx.moveTo(x + cardW - 1.5, L.cy + L.chH * 0.5);
+          ctx.lineTo(x + cardW + 1.5, L.cy + L.chH * 0.5);
+          ctx.stroke();
+        }
+      }
+      ctx.font = "9px ui-monospace, monospace";
+      ctx.fillStyle = muted;
+      ctx.fillText("CARD CHAIN — one card per pick", L.cx, L.cy - 4);
+
+      // the cloth: each row is one card, the chain repeating
+      var rows = CARDS * PASSES;
+      var rowH = L.fh / rows, colW = L.cw / HOOKS;
+      for (var r2 = 0; r2 < rows; r2++) {
+        var card = chain[r2 % CARDS];
+        for (var w2 = 0; w2 < HOOKS; w2++) {
+          var fx = L.cx + w2 * colW, fy = L.fy + r2 * rowH;
+          if (card[w2]) {
+            ctx.fillStyle = accent;      // warp lifted: the warp shows
+            ctx.globalAlpha = 0.85;
+            ctx.fillRect(fx, fy, colW, rowH);
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = "rgba(0,0,0,.16)";
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(fx + colW * 0.5, fy);
+            ctx.lineTo(fx + colW * 0.5, fy + rowH);
+            ctx.stroke();
+          } else {
+            ctx.fillStyle = "rgba(120,95,130,.5)";   // weft passes over
+            ctx.fillRect(fx, fy, colW, rowH);
+            ctx.strokeStyle = "rgba(0,0,0,.16)";
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(fx, fy + rowH * 0.5);
+            ctx.lineTo(fx + colW, fy + rowH * 0.5);
+            ctx.stroke();
+          }
+        }
+      }
+      ctx.fillStyle = muted;
+      ctx.fillText("WOVEN CLOTH — the chain, four times round", L.cx, L.fy - 4);
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    applyPreset("Damask");
+  }
+
+  // ---------------------------------------------------------------
+  // Past — Exchequer tally stick
+  // ---------------------------------------------------------------
+  // Notch widths carried the denomination — a cut the width of a palm was
+  // a thousand pounds, one the width of a barleycorn a penny. Then the
+  // stick was split lengthwise through the notches, and the two halves
+  // only matched each other, because no two pieces of wood split alike.
+  // A tamper-evident financial instrument, made of a stick.
+  function tallyStick(mount) {
+    var DENOMS = [
+      { label: "£1000", w: 16, v: 1000 },
+      { label: "£100", w: 11, v: 100 },
+      { label: "£20", w: 7.5, v: 20 },
+      { label: "£1", w: 4.5, v: 1 },
+      { label: "1s", w: 2.6, v: 0.05 },
+      { label: "1d", w: 1.4, v: 1 / 240 }
+    ];
+    var notches = [];
+    var split = false, forged = false, grain = [], forgedGrain = [];
+
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;padding:.4rem;text-align:left;";
+    var bar = controlBar();
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:200px;";
+    var status = statusLine(2.8);
+    wrap.appendChild(bar);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(status);
+    mount.appendChild(wrap);
+
+    function total() { return notches.reduce(function (a, n) { return a + n.v; }, 0); }
+    function money(v) {
+      var pounds = Math.floor(v);
+      var pence = Math.round((v - pounds) * 240);
+      var sh = Math.floor(pence / 12), d = pence % 12;
+      return "£" + pounds + " " + sh + "s " + d + "d";
+    }
+    function makeGrain() {
+      grain = [];
+      for (var i = 0; i <= 40; i++) grain.push((Math.random() - 0.5) * 7);
+    }
+    function refresh() {
+      var s = notches.length + " notches &nbsp;·&nbsp; <b>" + money(total()) + "</b>";
+      if (!split) s += "<br>One stick, both halves of the bargain still joined. Split it to issue the receipt.";
+      else if (forged) s += '<br><span style="color:#c0392b;">The grains do not answer to each other. This foil is a forgery, and the Exchequer can see it at a glance.</span>';
+      else s += '<br><span style="color:#2e7d32;">Stock and foil answer grain for grain. This is the receipt, and it cannot be faked without the other half.</span>';
+      status.innerHTML = s;
+    }
+
+    DENOMS.forEach(function (d) {
+      ctlButton(bar, d.label, "Cut a notch " + d.w + " units wide — " + d.label, function () {
+        if (split) return;
+        if (notches.length < 26) notches.push(d);
+        refresh();
+      });
+    });
+    spacer(bar);
+    var splitBtn = ctlButton(bar, "Split", "Cleave the stick lengthwise into stock and foil", function () {
+      if (!notches.length) return;
+      split = true; forged = false; makeGrain(); refresh();
+    });
+    ctlButton(bar, "Forge a foil", "Try to pass off a fresh piece of wood as the matching half", function () {
+      if (!split) return;
+      forged = true;
+      // Generated once, not per frame — a forgery is a specific bad piece
+      // of wood, not a line that shimmers.
+      forgedGrain = grain.map(function () { return (Math.random() - 0.5) * 7; });
+      refresh();
+    });
+    ctlButton(bar, "Reset", "A fresh hazel stick", function () {
+      notches = []; split = false; forged = false; refresh();
+    });
+
+    var cv = makeCanvas(canvasHost);
+    var ctx = cv.ctx;
+
+    function drawStick(x, y, w, h, half, offsetGrain) {
+      var g = ctx.createLinearGradient(0, y, 0, y + h);
+      g.addColorStop(0, "#c9a26a");
+      g.addColorStop(0.5, "#b08a52");
+      g.addColorStop(1, "#8e6c3c");
+      ctx.save();
+      ctx.beginPath();
+      if (half === "none") {
+        ctx.rect(x, y, w, h);
+      } else {
+        // the split face follows the grain, so the two halves interlock
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + w, y);
+        if (half === "stock") {
+          for (var i = 0; i <= 40; i++) ctx.lineTo(x + w - (i / 40) * w, y + h * 0.62 + (grain[i] || 0) + (offsetGrain || 0));
+        } else {
+          ctx.lineTo(x + w, y + h);
+          ctx.lineTo(x, y + h);
+        }
+        ctx.closePath();
+      }
+      ctx.clip();
+      ctx.fillStyle = g;
+      ctx.fillRect(x, y, w, h);
+      // wood grain
+      ctx.strokeStyle = "rgba(90,60,24,.22)";
+      ctx.lineWidth = 0.7;
+      for (var k = 0; k < 6; k++) {
+        var gy = y + (k + 0.5) * (h / 6);
+        ctx.beginPath();
+        ctx.moveTo(x, gy);
+        ctx.bezierCurveTo(x + w * 0.3, gy + 2, x + w * 0.7, gy - 2, x + w, gy);
+        ctx.stroke();
+      }
+      ctx.restore();
+      ctx.strokeStyle = "rgba(60,38,12,.6)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+
+      // the notches, cut across the top edge — both halves carry them
+      var nx = x + 14;
+      notches.forEach(function (n) {
+        ctx.fillStyle = "rgba(40,24,8,.8)";
+        ctx.beginPath();
+        ctx.moveTo(nx, y);
+        ctx.lineTo(nx + n.w, y);
+        ctx.lineTo(nx + n.w / 2, y + Math.min(h * 0.42, 4 + n.w * 0.7));
+        ctx.closePath();
+        ctx.fill();
+        nx += n.w + 4;
+      });
+    }
+    function drawSplitFace(x, y, w, h, jag, color) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      for (var i = 0; i <= 40; i++) {
+        var px = x + (i / 40) * w, py = y + h * 0.5 + (jag[i] || 0);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+
+    function frame() {
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 200;
+      ctx.clearRect(0, 0, w, h);
+      var muted = cssVar("--muted", "#5c4f37");
+      ctx.font = "10px ui-monospace, monospace";
+      var sw = Math.min(w - 40, 480), sx = (w - sw) / 2;
+
+      if (!split) {
+        drawStick(sx, h * 0.34, sw, 44, "none");
+        ctx.fillStyle = muted;
+        ctx.fillText("THE STICK — notched across the top edge", sx, h * 0.34 - 8);
+      } else {
+        drawStick(sx, 34, sw, 40, "none");
+        ctx.fillStyle = muted;
+        ctx.fillText("STOCK — kept by the Exchequer", sx, 26);
+        drawSplitFace(sx, 62, sw, 24, grain, "rgba(60,38,12,.85)");
+
+        var foilGrain = forged ? forgedGrain : grain;
+        drawStick(sx, h - 74, sw, 40, "none");
+        ctx.fillStyle = muted;
+        ctx.fillText("FOIL — carried away by the creditor", sx, h - 82);
+        drawSplitFace(sx, h - 78, sw, 24, foilGrain, forged ? "rgba(192,57,43,.9)" : "rgba(46,125,50,.9)");
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    refresh();
+  }
+
+  // ---------------------------------------------------------------
+  // Past — Mechanical calculator (the carry)
+  // ---------------------------------------------------------------
+  // Addition is trivial to build. The carry is not. Pascal's sautoir let a
+  // wheel passing nine lift a weighted arm and drop it onto the next
+  // wheel, and a run of nines meant lifting every arm at once — which is
+  // why these machines could only be cranked one way, and why the carry,
+  // not the sum, is the whole engineering problem of the era.
+  function mechanicalCarry(mount) {
+    var WHEELS = 6;
+    var digits = new Array(WHEELS).fill(0);   // index 0 = units
+    var anim = new Array(WHEELS).fill(0);     // rotation offset, for the flick
+    var pending = null, carrySteps = 0, lastReport = "";
+
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;padding:.4rem;text-align:left;";
+    var bar = controlBar();
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:170px;";
+    var status = statusLine(2.8);
+    wrap.appendChild(bar);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(status);
+    mount.appendChild(wrap);
+
+    function value() {
+      return digits.reduce(function (a, d, i) { return a + d * Math.pow(10, i); }, 0);
+    }
+    function refresh() {
+      status.innerHTML = "Register reads <b>" + String(value()).padStart(WHEELS, "0") + "</b>" +
+        (lastReport ? "<br>" + lastReport : "<br>Add one to 999999 and count how far the carry has to travel.");
+    }
+
+    // Adds to the units wheel, then walks the carry one wheel at a time so
+    // the propagation is visible rather than instantaneous.
+    function add(n) {
+      if (pending) return;
+      pending = { i: 0, carry: n, moved: 0 };
+      carrySteps = 0;
+    }
+    function stepCarry() {
+      if (!pending) return;
+      var i = pending.i;
+      if (i >= WHEELS) {
+        lastReport = "Overflowed the top wheel after " + pending.moved + " wheels. Pascal's machine simply lost it.";
+        pending = null;
+        refresh();
+        return;
+      }
+      if (pending.carry === 0) {
+        lastReport = "Carry propagated through <b>" + pending.moved + "</b> wheel" + (pending.moved === 1 ? "" : "s") + ".";
+        pending = null;
+        refresh();
+        return;
+      }
+      var sum = digits[i] + pending.carry;
+      digits[i] = sum % 10;
+      pending.carry = Math.floor(sum / 10);
+      anim[i] = 1;
+      pending.moved++;
+      pending.i++;
+      refresh();
+    }
+    setInterval(stepCarry, 110);
+
+    [1, 7, 99].forEach(function (n) {
+      ctlButton(bar, "+" + n, "Add " + n + " to the register", function () { add(n); });
+    });
+    ctlButton(bar, "Set 999999", "Load the worst case for the carry mechanism", function () {
+      digits = new Array(WHEELS).fill(9);
+      lastReport = "Loaded. Now add one, and watch every wheel in the machine have to move.";
+      refresh();
+    });
+    spacer(bar);
+    ctlButton(bar, "Reset", "Zero the register", function () {
+      digits = new Array(WHEELS).fill(0);
+      pending = null; lastReport = "";
+      refresh();
+    });
+
+    var cv = makeCanvas(canvasHost);
+    var ctx = cv.ctx;
+    function frame() {
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 170;
+      ctx.clearRect(0, 0, w, h);
+      var muted = cssVar("--muted", "#a4906c");
+      var accent = cssVar("--accent", "#c9a24b");
+      var dw = Math.min(52, (w - 30) / WHEELS), cy = h * 0.5;
+      var totalW = dw * WHEELS, x0 = (w - totalW) / 2;
+
+      for (var i = WHEELS - 1; i >= 0; i--) {
+        var slot = WHEELS - 1 - i;
+        var cx = x0 + slot * dw + dw / 2;
+        anim[i] *= 0.86;
+        var lift = anim[i] * 6;
+
+        // brass drum
+        var g = ctx.createLinearGradient(0, cy - dw * 0.5, 0, cy + dw * 0.5);
+        g.addColorStop(0, "#2e2412");
+        g.addColorStop(0.45, "#b9913f");
+        g.addColorStop(0.55, "#e0bc6d");
+        g.addColorStop(1, "#2e2412");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(cx - dw * 0.38, cy - dw * 0.52 - lift, dw * 0.76, dw * 1.04, 5);
+        else ctx.rect(cx - dw * 0.38, cy - dw * 0.52 - lift, dw * 0.76, dw * 1.04);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(0,0,0,.55)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // the digit in the window, with its neighbours peeking
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(cx - dw * 0.34, cy - dw * 0.3 - lift, dw * 0.68, dw * 0.6);
+        ctx.clip();
+        ctx.fillStyle = "#1a1206";
+        ctx.fillRect(cx - dw * 0.34, cy - dw * 0.3 - lift, dw * 0.68, dw * 0.6);
+        ctx.fillStyle = "#f0dca8";
+        ctx.font = "bold " + Math.round(dw * 0.44) + "px ui-monospace, monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(String(digits[i]), cx, cy + dw * 0.16 - lift);
+        ctx.globalAlpha = 0.28;
+        ctx.font = Math.round(dw * 0.3) + "px ui-monospace, monospace";
+        ctx.fillText(String((digits[i] + 9) % 10), cx, cy - dw * 0.24 - lift);
+        ctx.fillText(String((digits[i] + 1) % 10), cx, cy + dw * 0.5 - lift);
+        ctx.globalAlpha = 1;
+        ctx.restore();
+
+        // the sautoir arm, shown lifted while this wheel is carrying
+        if (pending && pending.i === i && pending.carry) {
+          ctx.strokeStyle = accent;
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.moveTo(cx + dw * 0.38, cy - dw * 0.3);
+          ctx.lineTo(cx + dw * 0.62, cy - dw * 0.5);
+          ctx.stroke();
+        }
+        ctx.font = "9px ui-monospace, monospace";
+        ctx.fillStyle = muted;
+        ctx.textAlign = "center";
+        ctx.fillText(Math.pow(10, i) >= 1000 ? "10^" + i : String(Math.pow(10, i)), cx, cy + dw * 0.78);
+        ctx.textAlign = "left";
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    refresh();
+  }
+
+  // ---------------------------------------------------------------
+  // Past — Paper tape
+  // ---------------------------------------------------------------
+  // Eight data holes per frame with the sprocket track running between
+  // levels three and four, which is how you tell at a glance which way up
+  // a tape goes. There is no random access: to correct a frame you cut the
+  // tape and splice a new piece in. "Patch" is not a metaphor borrowed
+  // from somewhere else. It is this, with scissors.
+  function paperTape(mount) {
+    var tape = [];            // array of char codes
+    var sel = -1;
+    var patches = 0;
+
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;padding:.4rem;text-align:left;";
+    var bar = controlBar();
+    var input = document.createElement("input");
+    input.type = "text";
+    input.value = "RUN TAPE";
+    input.maxLength = 24;
+    input.spellcheck = false;
+    input.setAttribute("aria-label", "Text to punch onto the tape");
+    input.style.cssText = "flex:1 1 9rem;min-width:7rem;padding:.35rem .6rem;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,.08);color:inherit;font-family:var(--font-mono);font-size:.8rem;text-transform:uppercase;";
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:150px;";
+    canvasHost.style.touchAction = "pan-y";
+    var status = statusLine(2.8);
+    bar.appendChild(input);
+    wrap.appendChild(bar);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(status);
+    mount.appendChild(wrap);
+
+    function punch(str) {
+      tape = str.toUpperCase().slice(0, 24).split("").map(function (ch) { return ch.charCodeAt(0) & 0xff; });
+      sel = -1; patches = 0;
+      refresh();
+    }
+    function text() {
+      return tape.map(function (c) { return String.fromCharCode(c); }).join("");
+    }
+    function refresh() {
+      status.innerHTML = "Tape reads <b>" + (text().replace(/&/g, "&amp;").replace(/</g, "&lt;") || "&nbsp;") +
+        "</b> &nbsp;·&nbsp; " + tape.length + " frames" +
+        (patches ? ", " + patches + " spliced by hand" : "") +
+        "<br>" + (sel >= 0
+          ? "Frame " + (sel + 1) + " selected. Cut it out, or splice a new frame in after it."
+          : "Tap a frame to select it. There is no other way to edit a tape.");
+    }
+
+    ctlButton(bar, "Punch", "Punch the whole tape fresh from the keyboard", function () { punch(input.value); });
+    spacer(bar);
+    ctlButton(bar, "Cut", "Snip the selected frame out and rejoin the ends", function () {
+      if (sel < 0 || sel >= tape.length) return;
+      tape.splice(sel, 1);
+      patches++;
+      sel = Math.min(sel, tape.length - 1);
+      refresh();
+    });
+    ctlButton(bar, "Splice", "Glue in one new frame, punched with the first character in the box", function () {
+      if (sel < 0) return;
+      var ch = (input.value.toUpperCase() || " ").charCodeAt(0) & 0xff;
+      tape.splice(sel + 1, 0, ch);
+      patches++;
+      sel++;
+      refresh();
+    });
+
+    function layout() {
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 150;
+      var fw = Math.max(9, Math.min(22, (w - 24) / Math.max(tape.length, 12)));
+      return { w: w, h: h, x: 12, y: h * 0.5 - fw * 4.6, fw: fw, th: fw * 9.2 };
+    }
+    canvasHost.addEventListener("pointerdown", function (e) {
+      var L = layout();
+      var r = canvasHost.getBoundingClientRect();
+      var i = Math.floor((e.clientX - r.left - L.x) / L.fw);
+      if (i < 0 || i >= tape.length) { sel = -1; refresh(); return; }
+      sel = i;
+      refresh();
+    });
+
+    var cv = makeCanvas(canvasHost);
+    var ctx = cv.ctx;
+    function frame() {
+      var L = layout();
+      ctx.clearRect(0, 0, L.w, L.h);
+      var muted = cssVar("--muted", "#7a6b4a");
+      var tw = Math.max(L.fw * tape.length, L.fw * 4);
+
+      // the tape itself, with torn ends
+      ctx.fillStyle = "#efe6cf";
+      ctx.fillRect(L.x, L.y, tw, L.th);
+      ctx.strokeStyle = "rgba(90,74,42,.5)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(L.x + 0.5, L.y + 0.5, tw - 1, L.th - 1);
+
+      var lvl = function (n) { return L.y + L.th * (0.09 + n * 0.101); };
+      var r = Math.max(1.5, L.fw * 0.19), sr = Math.max(0.9, L.fw * 0.1);
+      for (var i = 0; i < tape.length; i++) {
+        var cx = L.x + i * L.fw + L.fw / 2;
+        if (i === sel) {
+          ctx.fillStyle = "rgba(200,140,40,.22)";
+          ctx.fillRect(L.x + i * L.fw, L.y, L.fw, L.th);
+        }
+        for (var bit = 0; bit < 8; bit++) {
+          // levels run 1-3, sprocket, 4-8 — bit 0 is level 1 at the top
+          var slot = bit < 3 ? bit : bit + 1;
+          if (tape[i] & (1 << bit)) {
+            ctx.fillStyle = "#241a08";
+            ctx.beginPath();
+            ctx.arc(cx, lvl(slot), r, 0, Math.PI * 2);
+            ctx.fill();
+          } else {
+            ctx.strokeStyle = "rgba(140,120,80,.35)";
+            ctx.lineWidth = 0.6;
+            ctx.beginPath();
+            ctx.arc(cx, lvl(slot), r * 0.55, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+        // sprocket hole, always punched, smaller than the data holes
+        ctx.fillStyle = "#241a08";
+        ctx.beginPath();
+        ctx.arc(cx, lvl(3), sr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.font = "9px ui-monospace, monospace";
+      ctx.fillStyle = muted;
+      ctx.fillText("SPROCKET", L.x, lvl(3) + 3.2);
+      ctx.fillText("8-LEVEL TAPE — reads left to right, one frame per character", L.x, L.y - 6);
+      // the printed characters some punches echoed along the edge
+      ctx.fillStyle = "rgba(60,48,20,.65)";
+      for (var t = 0; t < tape.length; t++) {
+        ctx.fillText(String.fromCharCode(tape[t]), L.x + t * L.fw + L.fw * 0.28, L.y + L.th + 11);
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    punch("RUN TAPE");
+  }
+
+  // ---------------------------------------------------------------
   // Registry + lazy init
   // ---------------------------------------------------------------
   var REGISTRY = {
@@ -1934,7 +3072,14 @@
     "hum-tune": humTune,
     "dos-terminal": dosTerminal,
     "punchcard": punchcard,
-    "abacus": abacus
+    "abacus": abacus,
+    "quipu-knots": quipuKnots,
+    "clay-tablet": clayTablet,
+    "babbage-engine": babbageEngine,
+    "jacquard-loom": jacquardLoom,
+    "tally-stick": tallyStick,
+    "mechanical-carry": mechanicalCarry,
+    "paper-tape": paperTape
   };
 
   function init() {
