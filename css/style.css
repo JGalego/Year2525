@@ -375,6 +375,9 @@ body.presenter-mode .past-intro.presenter-current { justify-content: flex-start 
 .widget-surface canvas { display: block; width: 100%; height: 100%; }
 .interactive-hint { font-size: .8rem; color: var(--muted); margin-top: .75rem; margin-bottom: 0; }
 
+.cg-controls button:disabled { opacity: .35; cursor: default; }
+.cg-controls button:not(:disabled):hover { border-color: var(--accent); }
+
 .changelog {
   margin-top: 2rem;
   font-family: var(--font-mono);

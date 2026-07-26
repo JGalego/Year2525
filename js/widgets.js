@@ -154,12 +154,19 @@
   function cultivarGrow(mount) {
     var wrap = document.createElement("div");
     wrap.style.cssText = "width:100%;text-align:left;padding:.5rem;";
+    var traitBtn = 'padding:.35rem .7rem;border-radius:6px;cursor:pointer;font:inherit;';
+    var transportBtn = 'padding:.35rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--fg);cursor:pointer;font:inherit;';
     wrap.innerHTML =
       '<div class="cg-controls" style="display:flex;gap:.5rem;margin-bottom:.5rem;font-family:var(--font-display);font-size:.8rem;flex-wrap:wrap;">' +
-      '<button data-c="0" style="padding:.35rem .7rem;border-radius:6px;border:1px solid var(--accent);background:var(--accent);color:#04160f;cursor:pointer;">Cultivar A</button>' +
-      '<button data-c="1" style="padding:.35rem .7rem;border-radius:6px;border:1px solid var(--accent2);background:var(--accent2);color:#04160f;cursor:pointer;">Cultivar B</button>' +
-      '<button data-c="2" style="padding:.35rem .7rem;border-radius:6px;border:1px solid #d33;background:#d33;color:#fff;cursor:pointer;">Invasive Weed</button>' +
-      '<button class="cg-tend" style="margin-left:auto;padding:.35rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--fg);cursor:pointer;">Tend (advance season)</button>' +
+      '<button data-c="0" style="' + traitBtn + 'border:1px solid var(--accent);background:var(--accent);color:#04160f;" title="Cultivar A — a helpful, truthful growth pattern">Cultivar A</button>' +
+      '<button data-c="1" style="' + traitBtn + 'border:1px solid var(--accent2);background:var(--accent2);color:#04160f;" title="Cultivar B — a rival strain, just as legitimate">Cultivar B</button>' +
+      '<button data-c="2" style="' + traitBtn + 'border:1px solid #d33;background:#d33;color:#fff;" title="This era&#39;s malware — outcompetes rather than crashes">Invasive Weed</button>' +
+      '<span style="margin-left:auto;"></span>' +
+      '<button class="cg-random" style="' + transportBtn + '" title="Broadcast — scatter a wild mix of spores across the plot">Random</button>' +
+      '<button class="cg-rewind" style="' + transportBtn + '" title="Reseed — clear the plot back to bare soil">Rewind</button>' +
+      '<button class="cg-step" style="' + transportBtn + '" title="Tend — advance one season by hand">Step</button>' +
+      '<button class="cg-play" style="' + transportBtn + '" title="Cultivate — let the seasons run on their own">Play</button>' +
+      '<button class="cg-stop" style="' + transportBtn + '" title="Fallow — let the plot rest" disabled>Stop</button>' +
       '</div>';
     var canvasHost = document.createElement("div");
     canvasHost.style.cssText = "width:100%;height:180px;";
@@ -224,7 +231,50 @@
       grid = next;
       draw();
     }
-    wrap.querySelector(".cg-tend").addEventListener("click", tend);
+
+    var randomBtn = wrap.querySelector(".cg-random");
+    var rewindBtn = wrap.querySelector(".cg-rewind");
+    var stepBtn = wrap.querySelector(".cg-step");
+    var playBtn = wrap.querySelector(".cg-play");
+    var stopBtn = wrap.querySelector(".cg-stop");
+    var playTimer = null;
+
+    function stopPlaying() {
+      if (!playTimer) return;
+      clearInterval(playTimer);
+      playTimer = null;
+      playBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+    function startPlaying() {
+      if (playTimer) return;
+      playTimer = setInterval(tend, 450);
+      playBtn.disabled = true;
+      stopBtn.disabled = false;
+    }
+    function broadcast() {
+      stopPlaying();
+      for (var i = 0; i < grid.length; i++) {
+        if (Math.random() < 0.16) grid[i] = Math.random() < 0.12 ? 2 : (Math.random() < 0.5 ? 0 : 1);
+      }
+      draw();
+    }
+    function rewind() {
+      stopPlaying();
+      grid = new Array(cols * rows).fill(-1);
+      draw();
+    }
+
+    stepBtn.addEventListener("click", tend);
+    randomBtn.addEventListener("click", broadcast);
+    rewindBtn.addEventListener("click", rewind);
+    playBtn.addEventListener("click", startPlaying);
+    stopBtn.addEventListener("click", stopPlaying);
+
+    // Don't keep tending an unwatched plot in a backgrounded tab.
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden) stopPlaying();
+    });
 
     function draw() {
       var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 180;
