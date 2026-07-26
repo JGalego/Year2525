@@ -117,6 +117,8 @@ code { font-family: var(--font-mono); background: rgba(255,255,255,0.08); paddin
 .dotnav a.active { border-color: var(--accent); }
 .dotnav-icon {
   width: 13px; height: 13px;
+  flex: none;
+  flex-shrink: 0;
   color: var(--muted);
   transition: color .3s ease;
 }
@@ -171,9 +173,10 @@ body[data-mode="past"] .dotnav { display: none; }
 }
 
 .era-icon {
-  width: 1.5em;
-  height: 1.5em;
+  width: 1.15rem;
+  height: 1.15rem;
   flex: none;
+  flex-shrink: 0;
   color: var(--accent);
 }
 
@@ -356,7 +359,7 @@ body[data-mode="past"] { --transition-era: background-color .5s ease, color .5s 
   transition: var(--transition-era);
 }
 .past h2 { font-size: clamp(1.8rem, 5vw, 2.6rem); margin-bottom: .3em; display: flex; align-items: center; justify-content: center; gap: .35em; }
-.past-icon { width: .85em; height: .85em; flex: none; color: var(--accent); }
+.past-icon { width: 1.5rem; height: 1.5rem; flex: none; flex-shrink: 0; color: var(--accent); }
 .past-date { display: block; font-family: var(--font-mono); font-size: .75rem; color: var(--muted); font-weight: 400; letter-spacing: .05em; margin-top: .3em; }
 .past p { max-width: 56ch; }
 .past-caption { font-size: .85rem; color: var(--muted); font-style: italic; }
