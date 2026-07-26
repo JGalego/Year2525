@@ -719,17 +719,22 @@ body[data-past="zxspectrum"] .past { background: linear-gradient(#d4d0c2, #c9c4b
 body[data-past="system7"] { --bg:#ffffff; --fg:#000000; --muted:#555555; --accent:#000000; --border:#000000; --font-body: "Chicago", "Helvetica Neue", Helvetica, sans-serif; --font-display: "Chicago", "Helvetica Neue", Helvetica, sans-serif; }
 body[data-past="system7"] .past { background: repeating-linear-gradient(45deg,#fff,#fff 2px,#f0f0f0 2px,#f0f0f0 4px); }
 
-body[data-past="msdos"], body[data-past="terminal"] { --bg:#000000; --fg:#33ff66; --muted:#1f9c44; --accent:#33ff66; --border:#1f9c44; --font-body: var(--font-mono); --font-display: var(--font-mono); }
-body[data-past="msdos"] .past, body[data-past="terminal"] .past {
+body[data-past="msdos"] { --bg:#000000; --fg:#33ff66; --muted:#1f9c44; --accent:#33ff66; --border:#1f9c44; --font-body: var(--font-mono); --font-display: var(--font-mono); }
+body[data-past="msdos"] .past {
   background:
     repeating-linear-gradient(rgba(0,0,0,0) 0, rgba(0,0,0,0) 2px, rgba(0,0,0,0.35) 3px),
     #000;
 }
-body[data-past="terminal"] h2, body[data-past="msdos"] h2 { text-shadow: 0 0 6px currentColor; }
+body[data-past="msdos"] h2 { text-shadow: 0 0 6px currentColor; }
 
-body[data-past="hacker80s"] { --bg:#000000; --fg:#00ff41; --muted:#0aa62e; --accent:#00ff41; --border:#0aa62e; --font-body: var(--font-mono); --font-display: var(--font-mono); }
-body[data-past="hacker80s"] .past { background: #000; }
-body[data-past="hacker80s"] h2 { text-shadow: 0 0 8px currentColor; }
+body[data-past="eighties"] { --bg:#f4d536; --fg:#201644; --muted:#66541a; --accent:#e42372; --border:#201644; --font-body: Georgia, serif; --font-display: "Arial Black", Impact, sans-serif; }
+body[data-past="eighties"] .past { background: repeating-linear-gradient(135deg,#f4d536 0 22px,#edc72e 22px 44px); }
+.eighties-desk { width:min(100%,500px); margin:1.4rem auto; display:grid; grid-template-columns:1.5fr .8fr .8fr; gap:.8rem; align-items:end; font-family:var(--font-mono); }
+.eighties-monitor { min-height:120px; padding:1rem; color:#5bf5ff; background:#24154c; border:12px solid #c8b69b; border-radius:7px; box-shadow:7px 8px 0 #201644; text-align:left; }
+.eighties-monitor i { animation:eighties-cursor .8s steps(1) infinite; }
+.eighties-cassette { padding:1.2rem .5rem; color:#f7efd8; background:#191919; border:4px solid #f7efd8; box-shadow:5px 6px 0 #e42372; }
+.eighties-magazine { padding:1rem .4rem; color:#fff; background:#e42372; transform:rotate(4deg); box-shadow:5px 6px 0 #201644; font-family:var(--font-display); }
+@keyframes eighties-cursor { 50% { opacity:0; } }
 
 body[data-past="mainframe"] { --bg:#1a1206; --fg:#ffb000; --muted:#a9691d; --accent:#ffb000; --border:#a9691d; --font-body: var(--font-mono); --font-display: var(--font-mono); }
 
