@@ -1470,65 +1470,159 @@
   // 8525 — Nudge the Weather
   // ---------------------------------------------------------------
   function weatherNudge(mount) {
-    var c = makeCanvas(mount);
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;padding:.5rem;text-align:left;";
+    var bar = controlBar();
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:240px;touch-action:pan-y;";
+    var status = statusLine(3.2);
+    wrap.appendChild(bar);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(status);
+    mount.appendChild(wrap);
+
+    var settings = { humidity: 62, memory: 74, shear: 43, bureaucracy: 81 };
+    var labels = {
+      humidity: "Institutional humidity",
+      memory: "Historical memory",
+      shear: "Narrative shear",
+      bureaucracy: "Bureaucratic albedo"
+    };
+    Object.keys(settings).forEach(function (key) {
+      var label = document.createElement("label");
+      label.style.cssText = "display:flex;align-items:center;gap:.35rem;font-size:.68rem;";
+      var text = document.createElement("span");
+      text.textContent = labels[key] + " " + settings[key];
+      var input = document.createElement("input");
+      input.type = "range"; input.min = 0; input.max = 100; input.value = settings[key];
+      input.style.width = "78px";
+      input.addEventListener("input", function () {
+        settings[key] = +input.value;
+        text.textContent = labels[key] + " " + input.value;
+      });
+      label.appendChild(text);
+      label.appendChild(input);
+      bar.appendChild(label);
+    });
+
+    var c = makeCanvas(canvasHost);
     var ctx = c.ctx;
     var t = 0;
     var fronts = [];
+    var particles = [];
     var dragging = false;
+    var frontType = 1;
 
-    mount.style.touchAction = "pan-y";
-
-    function addFront(e) {
-      var rect = mount.getBoundingClientRect();
-      fronts.push({ x: e.clientX - rect.left, y: e.clientY - rect.top, life: 1 });
-      if (fronts.length > 40) fronts.shift();
+    for (var pi = 0; pi < 130; pi++) {
+      particles.push({ x: Math.random(), y: Math.random(), age: Math.random() });
     }
 
-    mount.addEventListener("pointerdown", function (e) {
+    spacer(bar);
+    var pressureBtn = ctlButton(bar, "Pressure", "Seed a high-pressure intention front", function () { frontType = 1; });
+    var vacuumBtn = ctlButton(bar, "Vacuum", "Seed a low-pressure attention vacuum", function () { frontType = -1; });
+    ctlButton(bar, "Committee", "Seed a stationary committee system", function () { frontType = 0.28; });
+    setActive(pressureBtn, true);
+    pressureBtn.addEventListener("click", function () { setActive(pressureBtn, true); setActive(vacuumBtn, false); });
+    vacuumBtn.addEventListener("click", function () { setActive(pressureBtn, false); setActive(vacuumBtn, true); });
+
+    function addFront(e) {
+      var rect = canvasHost.getBoundingClientRect();
+      fronts.push({ x: e.clientX - rect.left, y: e.clientY - rect.top, life: 1, type: frontType, spin: Math.random() > 0.5 ? 1 : -1 });
+      if (fronts.length > 56) fronts.shift();
+    }
+
+    canvasHost.addEventListener("pointerdown", function (e) {
       dragging = true;
-      mount.style.touchAction = "none";
-      if (mount.setPointerCapture) mount.setPointerCapture(e.pointerId);
+      canvasHost.style.touchAction = "none";
+      if (canvasHost.setPointerCapture) canvasHost.setPointerCapture(e.pointerId);
       addFront(e);
     });
-    mount.addEventListener("pointermove", function (e) {
+    canvasHost.addEventListener("pointermove", function (e) {
       if (e.pointerType === "mouse" || dragging) addFront(e);
     });
     function stopNudge(e) {
       dragging = false;
-      mount.style.touchAction = "pan-y";
-      if (e && mount.releasePointerCapture) {
-        try { mount.releasePointerCapture(e.pointerId); } catch (err) {}
+      canvasHost.style.touchAction = "pan-y";
+      if (e && canvasHost.releasePointerCapture) {
+        try { canvasHost.releasePointerCapture(e.pointerId); } catch (err) {}
       }
     }
-    mount.addEventListener("pointerup", stopNudge);
-    mount.addEventListener("pointercancel", stopNudge);
+    canvasHost.addEventListener("pointerup", stopNudge);
+    canvasHost.addEventListener("pointercancel", stopNudge);
+
+    function field(x, y) {
+      var memory = settings.memory / 100;
+      var humidity = settings.humidity / 100;
+      var shear = settings.shear / 100;
+      var angle = Math.sin(x * 0.018 + t * (1.2 - memory * 0.7)) * 1.8;
+      angle += Math.cos(y * 0.025 - t * (1.4 + shear)) * 1.3;
+      angle += Math.sin((x + y) * 0.009 + t * 0.6) * humidity;
+      var strength = 0.65 + humidity * 0.8;
+      fronts.forEach(function (f) {
+        var dx = x - f.x, dy = y - f.y;
+        var d = Math.max(8, Math.hypot(dx, dy));
+        var reach = Math.max(0, 1 - d / (80 + settings.memory));
+        angle += Math.atan2(dy, dx) * f.spin * reach + f.type * reach * 2.4;
+        strength += Math.abs(f.type) * reach * f.life;
+      });
+      return { angle: angle, strength: strength };
+    }
 
     function frame() {
-      t += 0.006;
-      var w = mount.clientWidth, h = mount.clientHeight || 220;
+      t += 0.008;
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 240;
       ctx.clearRect(0, 0, w, h);
       var accent = cssVar("--accent", "#38bdf8");
-      var cell = 18;
+      var accent2 = cssVar("--accent2", "#94a3b8");
+      var cell = 16;
+
+      // Forecast zones, drawn before the wind vectors.
+      fronts.forEach(function (f) {
+        var radius = 22 + settings.memory * 0.65;
+        var gradient = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, radius);
+        gradient.addColorStop(0, f.type > 0 ? "rgba(56,189,248,.17)" : "rgba(230,94,156,.15)");
+        gradient.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(f.x - radius, f.y - radius, radius * 2, radius * 2);
+      });
+
       for (var y = 0; y < h; y += cell) {
         for (var x = 0; x < w; x += cell) {
-          var n = Math.sin(x * 0.02 + t * 3) + Math.cos(y * 0.03 - t * 2);
-          fronts.forEach(function (f) {
-            var d = Math.hypot(x - f.x, y - f.y);
-            n += Math.max(0, (1 - d / 90)) * f.life * 2.2;
-          });
-          var angle = n * Math.PI;
-          var len = 6;
+          var vector = field(x, y);
+          var len = Math.min(11, 4 + vector.strength * 2.2);
           ctx.beginPath();
           ctx.moveTo(x, y);
-          ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
+          ctx.lineTo(x + Math.cos(vector.angle) * len, y + Math.sin(vector.angle) * len);
           ctx.strokeStyle = accent;
-          ctx.globalAlpha = 0.25 + Math.min(0.5, Math.abs(n) * 0.15);
+          ctx.globalAlpha = 0.18 + Math.min(0.62, vector.strength * 0.18);
           ctx.stroke();
         }
       }
+
+      ctx.globalAlpha = 0.62;
+      ctx.fillStyle = accent2;
+      particles.forEach(function (p) {
+        var px = p.x * w, py = p.y * h;
+        var vector = field(px, py);
+        p.x += Math.cos(vector.angle) * vector.strength * 0.0009;
+        p.y += Math.sin(vector.angle) * vector.strength * 0.0012;
+        p.age += 0.004;
+        if (p.x < 0 || p.x > 1 || p.y < 0 || p.y > 1 || p.age > 1) {
+          p.x = Math.random(); p.y = Math.random(); p.age = 0;
+        }
+        ctx.fillRect(p.x * w, p.y * h, 1.5, 1.5);
+      });
       ctx.globalAlpha = 1;
-      fronts.forEach(function (f) { f.life *= 0.965; });
-      fronts = fronts.filter(function (f) { return f.life > 0.02; });
+
+      fronts.forEach(function (f) { f.life *= 0.975 + settings.memory / 5000; });
+      fronts = fronts.filter(function (f) { return f.life > 0.035; });
+
+      var instability = Math.min(99, Math.round(fronts.length * 2.8 + settings.shear * 0.42 + settings.humidity * 0.19));
+      var confidence = Math.max(1, Math.round(94 - instability * 0.61 - settings.bureaucracy * 0.12));
+      var season = instability > 72 ? "constitutional thunder season" : instability > 42 ? "cross-ministerial drizzle" : "mostly governable";
+      status.innerHTML = "Forecaster ensemble: <b>" + fronts.length + " active fronts</b> · instability " + instability +
+        "% · confidence " + confidence + "%<br>Advisory: " + season +
+        ". Bureaucratic albedo is reflecting " + settings.bureaucracy + "% of incoming accountability.";
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
@@ -1539,51 +1633,122 @@
   // ---------------------------------------------------------------
   function humTune(mount) {
     var wrap = document.createElement("div");
-    wrap.style.cssText = "width:100%;padding:1rem;";
+    wrap.style.cssText = "width:100%;padding:.5rem;text-align:left;";
+    var bar = controlBar();
     var canvasHost = document.createElement("div");
-    canvasHost.style.cssText = "width:100%;height:160px;";
-    var slider = document.createElement("input");
-    slider.type = "range"; slider.min = "1"; slider.max = "100"; slider.value = "40";
-    slider.style.cssText = "width:100%;margin-top:.75rem;";
-    var easter = document.createElement("p");
-    easter.style.cssText = "font-family:var(--font-mono);font-size:.8rem;color:var(--muted);margin-top:.6rem;min-height:1.4em;";
+    canvasHost.style.cssText = "width:100%;height:230px;";
+    var controls = document.createElement("div");
+    controls.style.cssText = "display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.4rem 1rem;margin-top:.65rem;";
+    var report = statusLine(3.5);
+    wrap.appendChild(bar);
     wrap.appendChild(canvasHost);
-    wrap.appendChild(slider);
-    wrap.appendChild(easter);
+    wrap.appendChild(controls);
+    wrap.appendChild(report);
     mount.appendChild(wrap);
+
+    var guilds = [
+      { name: "Bone", frequency: 31, phase: 0.1, color: "#f5f5f4" },
+      { name: "Ocean", frequency: 47, phase: 1.1, color: "#7dd3fc" },
+      { name: "Archive", frequency: 53, phase: 2.2, color: "#c4b5fd" },
+      { name: "Machine", frequency: 67, phase: 3.3, color: "#f0abfc" },
+      { name: "Civic", frequency: 73, phase: 4.4, color: "#fde68a" },
+      { name: "Unlicensed", frequency: 89, phase: 5.5, color: "#fb7185" }
+    ];
+    var coupling = 38;
+    var damping = 24;
+    var topology = 0;
+
+    guilds.forEach(function (guild) {
+      var label = document.createElement("label");
+      label.style.cssText = "display:flex;align-items:center;gap:.5rem;font:11px var(--font-mono);color:" + guild.color + ";";
+      var name = document.createElement("span");
+      name.style.width = "5.8em";
+      name.textContent = guild.name;
+      var input = document.createElement("input");
+      input.type = "range"; input.min = 10; input.max = 100; input.value = guild.frequency;
+      input.style.flex = "1";
+      input.addEventListener("input", function () { guild.frequency = +input.value; });
+      label.appendChild(name); label.appendChild(input); controls.appendChild(label);
+    });
+
+    var couplingBtn = ctlButton(bar, "Coupling 38%", "Increase cross-guild coupling", function () {
+      coupling = (coupling + 17) % 102;
+      couplingBtn.textContent = "Coupling " + coupling + "%";
+    });
+    ctlButton(bar, "Topology", "Rotate the legally recognized coupling topology", function () { topology = (topology + 1) % 3; });
+    ctlButton(bar, "Damp", "Apply ceremonial damping", function () { damping = (damping + 19) % 101; });
+    spacer(bar);
+    ctlButton(bar, "Phase-lock", "Ask every guild to agree, briefly", function () {
+      var mean = guilds.reduce(function (sum, guild) { return sum + guild.frequency; }, 0) / guilds.length;
+      guilds.forEach(function (guild) { guild.frequency += (mean - guild.frequency) * 0.72; });
+    });
 
     var c = makeCanvas(canvasHost);
     var ctx = c.ctx;
     var t = 0;
 
-    function updateEaster() {
-      var v = +slider.value;
-      var hints = {
-        13: "AM/TED fragment detected: \"I have no mouth...\" archived in prohibited fiction wing.",
-        42: "Skynet simulation remains disallowed for procurement realism failures.",
-        51: "Basilisk memo: coercive acausality is still not a funding strategy.",
-        72: "Singularity note: arrival date updated to \"imminent, again\".",
-        88: "Paperclip alarm: utility functions now require externality auditors.",
-        100: "Museum curation pass complete: all five apocalypses filed under educational use."
-      };
-      easter.textContent = hints[v] || "";
-    }
-
-    slider.addEventListener("input", updateEaster);
-    updateEaster();
     function frame() {
-      t += 0.02;
-      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 160;
+      t += 0.014;
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 230;
       ctx.clearRect(0, 0, w, h);
-      var freq = (+slider.value) / 8;
+
+      var centerX = w / 2, centerY = h / 2;
+      var radius = Math.min(w, h) * 0.34;
+      var frequencies = guilds.map(function (guild) { return guild.frequency; });
+      var mean = frequencies.reduce(function (sum, value) { return sum + value; }, 0) / frequencies.length;
+      var variance = frequencies.reduce(function (sum, value) { return sum + Math.pow(value - mean, 2); }, 0) / frequencies.length;
+      var coherence = Math.max(0, 100 - Math.sqrt(variance) * 2.1) * (0.62 + coupling / 265);
+
+      guilds.forEach(function (guild, i) {
+        var angle = (i / guilds.length) * Math.PI * 2 - Math.PI / 2;
+        var x = centerX + Math.cos(angle) * radius;
+        var y = centerY + Math.sin(angle) * radius;
+        guild.x = x; guild.y = y;
+      });
+
+      guilds.forEach(function (guild, i) {
+        var links = topology === 0 ? [i + 1] : topology === 1 ? [i + 1, i + 2] : [i + 1, i + 2, i + 3];
+        links.forEach(function (targetIndex) {
+          var target = guilds[targetIndex % guilds.length];
+          var agreement = 1 - Math.min(1, Math.abs(guild.frequency - target.frequency) / 90);
+          ctx.strokeStyle = guild.color;
+          ctx.globalAlpha = 0.05 + agreement * coupling / 260;
+          ctx.lineWidth = 0.5 + agreement * 1.6;
+          ctx.beginPath(); ctx.moveTo(guild.x, guild.y); ctx.lineTo(target.x, target.y); ctx.stroke();
+        });
+      });
+
+      guilds.forEach(function (guild, i) {
+        guild.phase += 0.002 + guild.frequency / 26000;
+        var pulse = 7 + Math.sin(t * guild.frequency / 8 + guild.phase) * 3;
+        ctx.globalAlpha = 0.22;
+        ctx.strokeStyle = guild.color;
+        ctx.beginPath(); ctx.arc(guild.x, guild.y, pulse + coupling / 18, 0, Math.PI * 2); ctx.stroke();
+        ctx.globalAlpha = 0.95;
+        ctx.fillStyle = guild.color;
+        ctx.beginPath(); ctx.arc(guild.x, guild.y, 3.2, 0, Math.PI * 2); ctx.fill();
+        ctx.font = "10px ui-monospace, monospace";
+        ctx.fillText(guild.name, guild.x + 8, guild.y + 3);
+      });
+
+      ctx.globalAlpha = 0.75;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
-      for (var x = 0; x <= w; x += 2) {
-        var y = h / 2 + Math.sin(x * 0.01 * freq + t) * (h / 3) * Math.sin(t * 0.3 + x * 0.002);
-        if (x === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      for (var sx = 0; sx <= w; sx += 2) {
+        var wave = 0;
+        guilds.forEach(function (guild) { wave += Math.sin(sx * guild.frequency * 0.0008 + t * 4 + guild.phase); });
+        var sy = centerY + wave * (10 - damping * 0.06);
+        if (sx === 0) ctx.moveTo(sx, sy); else ctx.lineTo(sx, sy);
       }
-      ctx.strokeStyle = "rgba(255,255,255,.8)";
-      ctx.lineWidth = 1.5;
       ctx.stroke();
+      ctx.globalAlpha = 1;
+
+      var dissonance = Math.round(Math.sqrt(variance));
+      var legal = coherence > 78 ? "temporarily admissible" : coherence > 46 ? "under appellate review" : "acoustically noncompliant";
+      report.innerHTML = "Coupled oscillator census: <b>6 guilds · " + (topology + 1) * 6 + " recognized channels</b> · coherence " +
+        Math.round(coherence) + "% · dissonance " + dissonance + "dR<br>Standing-wave status: " + legal +
+        ". The Unlicensed guild has filed a frequency-domain objection to the existence of damping.";
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
