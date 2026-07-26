@@ -475,7 +475,16 @@ body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05r
   opacity: .85;
   margin-bottom: .7em;
 }
-.example-card h4 span { color: var(--fg); text-transform: none; letter-spacing: 0; font-weight: 700; }
+.example-card h4 span {
+  display: block;
+  margin-top: .35rem;
+  color: var(--fg);
+  text-transform: none;
+  letter-spacing: -0.01em;
+  font-weight: 760;
+  font-size: clamp(1.15rem, 2.4vw, 1.65rem);
+  line-height: 1.2;
+}
 .day-in-life { font-style: italic; opacity: .9; border-top: 1px dashed var(--border); padding-top: 1em; margin-top: 1em; }
 .historical-note { background: rgba(94,230,200,0.05); border-color: rgba(94,230,200,0.25); }
 
