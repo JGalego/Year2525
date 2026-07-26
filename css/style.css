@@ -509,10 +509,14 @@ body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05r
 .interactive-label { font-family: var(--font-display); font-size: .95rem; margin-bottom: 1rem; }
 .interactive-label strong { color: var(--accent); }
 .interactive-label-icon {
-  width: .78rem;
-  height: .78rem;
-  margin-right: .4rem;
-  vertical-align: -.08em;
+  width: 10px !important;
+  height: 10px !important;
+  min-width: 10px;
+  max-width: 10px;
+  min-height: 10px;
+  max-height: 10px;
+  margin-right: .35rem;
+  vertical-align: 0;
   color: var(--accent);
 }
 .widget-surface {
