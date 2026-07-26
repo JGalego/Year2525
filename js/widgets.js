@@ -3379,11 +3379,11 @@
     var bar = controlBar();
     var input = document.createElement("input");
     input.type = "text";
-    input.value = "RUN TAPE";
+    input.value = "THE FUTURE IS PERFORATED";
     input.maxLength = 24;
     input.spellcheck = false;
     input.setAttribute("aria-label", "Text to punch onto the tape");
-    input.style.cssText = "flex:1 1 9rem;min-width:7rem;padding:.35rem .6rem;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,.08);color:inherit;font-family:var(--font-mono);font-size:.8rem;text-transform:uppercase;";
+    input.style.cssText = "flex:1 0 100%;width:100%;min-width:0;padding:.5rem .7rem;border-radius:6px;border:1px solid var(--border);background:rgba(0,0,0,.08);color:inherit;font-family:var(--font-mono);font-size:clamp(.75rem,2.2vw,1rem);letter-spacing:.08em;text-align:center;text-transform:uppercase;";
     var canvasHost = document.createElement("div");
     canvasHost.style.cssText = "width:100%;height:150px;";
     canvasHost.style.touchAction = "pan-y";
@@ -3501,7 +3501,7 @@
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
-    punch("RUN TAPE");
+    punch("THE FUTURE IS PERFORATED");
   }
 
   // ---------------------------------------------------------------
