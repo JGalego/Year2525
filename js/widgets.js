@@ -186,8 +186,9 @@
       '<button data-c="1" style="' + traitBtn + 'border:1px solid var(--accent2);background:var(--accent2);color:#04160f;" title="Cultivar B — a rival strain, just as legitimate">Cultivar B</button>' +
       '<button data-c="2" style="' + traitBtn + 'border:1px solid #d33;background:#d33;color:#fff;" title="This era&#39;s malware — outcompetes rather than crashes">Invasive Weed</button>' +
       '<span style="margin-left:auto;"></span>' +
-      '<button class="cg-random" style="' + transportBtn + '" title="Broadcast — scatter a wild mix of spores across the plot">Random</button>' +
-      '<button class="cg-rewind" style="' + transportBtn + '" title="Reseed — clear the plot back to bare soil">Rewind</button>' +
+      '<button class="cg-random" style="' + transportBtn + '" title="Broadcast — clear the plot and scatter a fresh wild mix of spores">Random</button>' +
+      '<button class="cg-reset" style="' + transportBtn + '" title="Reset — clear the plot back to bare soil">Reset</button>' +
+      '<button class="cg-rewind" style="' + transportBtn + '" title="Rewind — back to how the plot was sown, before the seasons ran">Rewind</button>' +
       '<button class="cg-step" style="' + transportBtn + '" title="Tend — advance one season by hand">Step</button>' +
       '<button class="cg-play" style="' + transportBtn + '" title="Cultivate — let the seasons run on their own">Play</button>' +
       '<button class="cg-stop" style="' + transportBtn + '" title="Fallow — let the plot rest" disabled>Stop</button>' +
@@ -200,6 +201,10 @@
 
     var cols = 28, rows = 14;
     var grid = new Array(cols * rows).fill(-1);
+    // How the plot was last sown by hand, by Random, or by Reset. Tending
+    // never touches it, so Rewind can always get back to the starting
+    // configuration instead of just clearing the plot.
+    var sown = grid.slice();
     var current = 0;
     wrap.querySelectorAll(".cg-controls button[data-c]").forEach(function (btn) {
       btn.addEventListener("click", function () { current = +btn.dataset.c; });
@@ -232,6 +237,7 @@
       draw();
     });
     function stopDrawing(e) {
+      if (drawing) sown = grid.slice();   // hand-sowing becomes the new start
       drawing = false;
       canvasHost.style.touchAction = "pan-y";
       if (e && canvasHost.releasePointerCapture) {
@@ -278,6 +284,7 @@
     }
 
     var randomBtn = wrap.querySelector(".cg-random");
+    var resetBtn = wrap.querySelector(".cg-reset");
     var rewindBtn = wrap.querySelector(".cg-rewind");
     var stepBtn = wrap.querySelector(".cg-step");
     var playBtn = wrap.querySelector(".cg-play");
@@ -299,19 +306,33 @@
     }
     function broadcast() {
       stopPlaying();
-      for (var i = 0; i < grid.length; i++) {
-        if (Math.random() < 0.16) grid[i] = Math.random() < 0.12 ? 2 : (Math.random() < 0.5 ? 0 : 1);
+      // Every cell is written, so a broadcast is a fresh plot rather than
+      // another handful of spores thrown over whatever was already growing.
+      var next = new Array(cols * rows);
+      for (var i = 0; i < next.length; i++) {
+        next[i] = Math.random() < 0.16
+          ? (Math.random() < 0.12 ? 2 : (Math.random() < 0.5 ? 0 : 1))
+          : -1;
       }
+      grid = next;
+      sown = grid.slice();
+      draw();
+    }
+    function reset() {
+      stopPlaying();
+      grid = new Array(cols * rows).fill(-1);
+      sown = grid.slice();
       draw();
     }
     function rewind() {
       stopPlaying();
-      grid = new Array(cols * rows).fill(-1);
+      grid = sown.slice();
       draw();
     }
 
     stepBtn.addEventListener("click", tend);
     randomBtn.addEventListener("click", broadcast);
+    resetBtn.addEventListener("click", reset);
     rewindBtn.addEventListener("click", rewind);
     playBtn.addEventListener("click", startPlaying);
     stopBtn.addEventListener("click", stopPlaying);
