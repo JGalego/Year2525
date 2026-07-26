@@ -1757,6 +1757,121 @@
   // ---------------------------------------------------------------
   // Past — MS-DOS terminal
   // ---------------------------------------------------------------
+  function archiveInterface(mount) {
+    var demo = mount.getAttribute("data-demo");
+    var status = document.createElement("p");
+    status.className = "archive-demo-status";
+
+    function button(label, action) {
+      var node = document.createElement("button");
+      node.type = "button";
+      node.textContent = label;
+      node.addEventListener("click", action);
+      return node;
+    }
+
+    if (demo === "modern-web") {
+      var web = document.createElement("div");
+      web.className = "archive-demo-screen";
+      web.style.cssText = "background:linear-gradient(135deg,#fff9,rgba(220,225,255,.78));border-radius:8px;color:#171923;box-shadow:0 12px 30px rgba(30,30,60,.15);";
+      web.innerHTML = '<b>Your privacy is important to our revenue model.</b><p style="margin:.5rem 0;font-size:.8rem;">We and 847 carefully selected partners would like to remember that you looked at this sentence.</p>';
+      var accepted = 0;
+      web.appendChild(button("Accept all", function (e) {
+        accepted += 847;
+        e.currentTarget.textContent = accepted > 2500 ? "Accept all again" : "Accepted (probably)";
+        status.textContent = accepted + " partner relationships activated. Preferences center moved to a more discoverable legal jurisdiction.";
+      }));
+      mount.appendChild(web);
+      mount.appendChild(status);
+      status.textContent = "Consent state: technically pending.";
+    } else if (demo === "iphone") {
+      var phone = document.createElement("div");
+      phone.className = "archive-demo-screen";
+      phone.style.cssText = "background:#6b2f18;border:8px ridge #9b5b32;border-radius:18px;color:#2c1a0c;box-shadow:inset 0 0 0 2px #d7a66b;";
+      phone.innerHTML = '<div style="background:#f4e4ad;min-height:92px;padding:.8rem;background-image:repeating-linear-gradient(#0000 0 22px,#8fb0d455 23px 24px);box-shadow:inset 0 0 8px #6b421f;"><b>NOTES</b><br><span class="skeuo-note">Buy a notebook app that looks like this notebook.</span></div>';
+      phone.appendChild(button("Turn the page", function () {
+        var note = phone.querySelector(".skeuo-note");
+        note.textContent = note.textContent.indexOf("Buy") === 0 ? "Polish the virtual leather. Avoid the actual notebook." : "Buy a notebook app that looks like this notebook.";
+      }));
+      mount.appendChild(phone);
+    } else if (demo === "xp") {
+      var xp = document.createElement("div");
+      xp.className = "archive-demo-screen";
+      xp.style.cssText = "background:linear-gradient(#58a9ef 0 62%,#55a53d 63%);color:#111;position:relative;font-family:Tahoma,sans-serif;";
+      var menu = document.createElement("div");
+      menu.style.cssText = "display:none;position:absolute;bottom:38px;left:8px;width:190px;padding:.7rem;background:#f4f7ff;border:2px solid #2863ad;box-shadow:3px 3px 8px #0005;";
+      menu.innerHTML = '<b>Internet</b><br>My Documents<br>Control Panel<br>Tour Windows XP<br><hr>Turn Off Computer';
+      var start = button("start", function () { menu.style.display = menu.style.display === "none" ? "block" : "none"; });
+      start.style.cssText = "position:absolute;bottom:5px;left:5px;background:#45a72d;color:white;border-radius:12px 4px 4px 12px;padding:.35rem 1rem;font-weight:bold;";
+      xp.appendChild(menu); xp.appendChild(start); mount.appendChild(xp);
+    } else if (demo === "win95") {
+      mount.innerHTML = '<div class="win95-window"><div class="win95-titlebar"><span>SETUP.EXE</span><div class="win95-window-btns"><span>_</span><span>▢</span><span>×</span></div></div><div class="win95-window-body">Preparing to install Civilisation 95.<div class="win95-progress"><span></span></div><button type="button">Install</button><div class="setup-copy">Insert Disk 1 of 47.</div></div></div>';
+      var progress = mount.querySelector(".win95-progress span");
+      var copy = mount.querySelector(".setup-copy");
+      mount.querySelector("button").addEventListener("click", function () {
+        var value = 0;
+        this.disabled = true;
+        var timer = setInterval(function () {
+          value += Math.ceil(Math.random() * 9);
+          if (value >= 93) {
+            value = 93;
+            copy.textContent = "93% — Estimating time remaining: 3 minutes (revised from 2 hours).";
+            clearInterval(timer);
+          } else {
+            copy.textContent = "Copying GOVERN.DLL... " + value + "%";
+          }
+          progress.style.width = value + "%";
+        }, 180);
+      });
+    } else if (demo === "zx") {
+      var zx = document.createElement("div");
+      zx.className = "archive-demo-screen";
+      zx.style.cssText = "background:#111;color:#fff;border:10px solid #c9c4b6;font-family:monospace;text-align:center;";
+      zx.innerHTML = '<div class="zx-loading-strip"></div><p style="margin:.8rem 0;">0 OK, 0:1</p>';
+      zx.appendChild(button('LOAD "FUTURE"', function () {
+        var output = zx.querySelector("p");
+        output.textContent = "Loading";
+        var ticks = 0;
+        var timer = setInterval(function () {
+          ticks++;
+          output.textContent = "Loading" + ".".repeat(ticks % 4);
+          if (ticks === 11) {
+            clearInterval(timer);
+            output.textContent = Math.random() < 0.72 ? "R Tape loading error, 0:1" : "FUTURE loaded. Colour clash imminent.";
+          }
+        }, 150);
+      }));
+      mount.appendChild(zx);
+    } else if (demo === "system7") {
+      var mac = document.createElement("div");
+      mac.className = "archive-demo-screen";
+      mac.style.cssText = "background:#fff;color:#000;border:2px solid #000;font-family:Chicago,monospace;";
+      mac.innerHTML = '<div style="border-bottom:1px solid #000;margin:-1rem -1rem .8rem;padding:.2rem .5rem;"> &nbsp; File &nbsp; Edit &nbsp; View &nbsp; Special</div><div class="mac-icons">▣ System Folder &nbsp; ◇ Untitled Folder &nbsp; ♲ Trash</div>';
+      mac.appendChild(button("Make Alias", function () {
+        var icons = mac.querySelector(".mac-icons");
+        icons.innerHTML += "<br>↗ Untitled Folder alias";
+        status.textContent = (icons.querySelectorAll("br").length) + " aliases now point confidently toward one folder.";
+      }));
+      mount.appendChild(mac); mount.appendChild(status); status.textContent = "Desktop database rebuilt recently enough.";
+    } else if (demo === "mainframe") {
+      var mainframe = document.createElement("div");
+      mainframe.className = "archive-demo-screen";
+      mainframe.style.cssText = "background:#191208;color:#ffb000;border:2px solid #a9691d;font-family:monospace;";
+      mainframe.innerHTML = '<b>OS/360 JOB ENTRY</b><pre class="job-log">QUEUE DEPTH: 12\nREADY.</pre>';
+      var jobs = 12;
+      mainframe.appendChild(button("SUBMIT PAYROLL.JCL", function () {
+        jobs++;
+        var log = mainframe.querySelector(".job-log");
+        log.textContent = "QUEUE DEPTH: " + jobs + "\nJOB 00" + jobs + " ACCEPTED\nESTIMATED OUTPUT: THURSDAY";
+        setTimeout(function () { log.textContent += "\nABEND S0C7: INVALID DECIMAL DATA"; }, 1200);
+      }));
+      mount.appendChild(mainframe);
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // Past — MS-DOS terminal
+  // ---------------------------------------------------------------
   function dosTerminal(mount) {
     mount.innerHTML =
       '<div class="dos-output">Microsoft(R) MS-DOS(R) Version 5.00\nCopyright Microsoft Corp 1981-1991\n\nType HELP for a list of commands.\n</div>' +
@@ -3771,6 +3886,7 @@
     "liturgy-invoke": liturgyInvoke,
     "weather-nudge": weatherNudge,
     "hum-tune": humTune,
+    "archive-interface": archiveInterface,
     "dos-terminal": dosTerminal,
     "punchcard": punchcard,
     "abacus": abacus,

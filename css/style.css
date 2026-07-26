@@ -647,6 +647,15 @@ body[data-mode="past"] { --transition-era: background-color .5s ease, color .5s 
 .past-date { display: block; font-family: var(--font-mono); font-size: .75rem; color: var(--muted); font-weight: 400; letter-spacing: .05em; margin-top: -.1rem; margin-bottom: 1.4rem; }
 .past p { max-width: 56ch; }
 .past-caption { font-size: .85rem; color: var(--muted); font-style: italic; }
+.archive-demo {
+  width: min(100%, 520px);
+  min-height: 130px;
+  margin: 1.4rem auto;
+  text-align: left;
+}
+.archive-demo button { font: inherit; cursor: pointer; }
+.archive-demo-screen { min-height: 130px; padding: 1rem; border: 1px solid var(--border); overflow: hidden; }
+.archive-demo-status { margin: .65rem 0 0 !important; font-family: var(--font-mono); font-size: .75rem; }
 
 /* regressing visual language, oldest → newest as we go further back */
 
@@ -682,6 +691,8 @@ body[data-past="win95"] h2 { color: #000080; }
 .win95-window-body {
   padding: .65rem .7rem; font-family: "Courier New", monospace; font-size: .78rem; color: #000;
 }
+.win95-progress { height: 16px; margin: .7rem 0; border: 2px inset #fff; background: #fff; }
+.win95-progress span { display: block; width: 0; height: 100%; background: #000080; }
 
 body[data-past="zxspectrum"] { --bg:#c9c4b6; --fg:#241f18; --muted:#6b6558; --accent:#cc1414; --border:#8a8374; --font-body: Georgia, serif; --font-display: Georgia, serif; }
 body[data-past="zxspectrum"] .past { background: linear-gradient(#d4d0c2, #c9c4b6); }
