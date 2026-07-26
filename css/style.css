@@ -276,7 +276,7 @@ body.presenter-mode .past-intro.presenter-current.presenter-overflow { justify-c
 .presenter-sub { max-width: var(--maxw); margin: 0 auto; width: 100%; }
 .presenter-sub-title { text-align: left; }
 .presenter-sub-title .era-icon { width: 3rem; height: 3rem; margin-bottom: 1.5rem; }
-.presenter-sub-title .era-art { max-width: 100%; height: clamp(180px, 30vw, 320px); margin: 1.5rem 0 0; }
+.presenter-sub-title .era-art { max-width: min(100%, 780px); margin: 1.5rem auto 0; }
 .presenter-sub-heading {
   font-family: var(--font-display);
   font-size: clamp(2rem, 5.5vw, 3.4rem);
@@ -354,22 +354,48 @@ body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05r
 .era-art {
   width: 100%;
   max-width: 640px;
-  height: clamp(140px, 24vw, 220px);
+  /* Matches the scenes' 600×240 artboard. The dioramas are composed to the
+     frame edge, so any other ratio would either crop the composition or
+     letterbox it — pinning the box to 5:2 keeps every scene fully in shot. */
+  aspect-ratio: 5 / 2;
   margin: 0 0 2.5rem;
   color: var(--accent);
   position: relative;
+  overflow: hidden;
   border-radius: 22px;
   border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
-  background:
-    radial-gradient(circle at 20% 18%, color-mix(in srgb, var(--accent2) 26%, transparent), transparent 38%),
-    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015));
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 18px 40px rgba(0,0,0,0.18);
+  background: var(--bg2);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 24px 60px rgba(0,0,0,0.42);
   transition: var(--transition-era);
 }
-.era-art svg { display: block; width: 100%; height: 100%; overflow: visible; }
-@media (max-width: 600px) {
-  .era-art { height: clamp(110px, 40vw, 160px); margin-bottom: 2rem; }
+/* A pane of glass over the diorama: one raking highlight, nothing else. */
+.era-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(102deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0) 34%, rgba(255,255,255,0) 100%);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
 }
+.era-art svg { display: block; width: 100%; height: 100%; }
+@media (max-width: 600px) {
+  .era-art { margin-bottom: 2rem; border-radius: 16px; }
+}
+
+/* Scene motion. Both are deliberately near-subliminal, and both are already
+   neutralised by the global prefers-reduced-motion rule at the top. */
+@keyframes art-scan-roll { from { transform: translateY(0); } to { transform: translateY(6px); } }
+.art-scene .art-scan { animation: art-scan-roll 7s linear infinite; }
+@keyframes art-flicker {
+  0%, 44%, 100% { opacity: .95; }
+  46%, 52% { opacity: .25; }
+  54%, 78% { opacity: .9; }
+  80% { opacity: .4; }
+}
+.art-scene .art-flicker { animation: art-flicker 4.5s steps(1, end) infinite; }
 
 .era-grid {
   display: grid;

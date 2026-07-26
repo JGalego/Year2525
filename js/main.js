@@ -290,7 +290,16 @@
     d.className = "presenter-sub presenter-sub-title";
     ["era-icon", "era-kicker", "era-title", "era-tagline", "era-art"].forEach(function (cls) {
       var src = era.querySelector("." + cls);
-      if (src) d.appendChild(src.cloneNode(true));
+      if (!src) return;
+      // The era artwork is re-generated rather than deep-cloned. A cloned
+      // scene carries duplicate gradient/filter ids, and those resolve back
+      // to the original inside the now-hidden era, which the browser has
+      // stopped building resources for — the copy renders flat and unlit.
+      if (cls === "era-art" && window.Year2525Art) {
+        var mount = src.cloneNode(false);
+        if (window.Year2525Art.render(mount)) { d.appendChild(mount); return; }
+      }
+      d.appendChild(src.cloneNode(true));
     });
     return d;
   }
