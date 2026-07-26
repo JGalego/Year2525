@@ -3720,14 +3720,15 @@
   // sequence comes back in order. Storage on unmodified wetware.
   function memoryPalace(mount) {
     var LOCI = [
-      { n: "the porch", x: 0.10, y: 0.78 },
-      { n: "the atrium", x: 0.26, y: 0.48 },
-      { n: "the hearth", x: 0.44, y: 0.72 },
-      { n: "the stair", x: 0.56, y: 0.32 },
-      { n: "the long window", x: 0.70, y: 0.62 },
-      { n: "the store room", x: 0.86, y: 0.36 }
+      { n: "street door", x: 0.07, y: 0.50 },
+      { n: "fauces", x: 0.19, y: 0.50 },
+      { n: "impluvium", x: 0.38, y: 0.50 },
+      { n: "tablinum", x: 0.57, y: 0.50 },
+      { n: "peristyle", x: 0.75, y: 0.50 },
+      { n: "triclinium", x: 0.84, y: 0.22 },
+      { n: "kitchen", x: 0.88, y: 0.78 }
     ];
-    var ITEMS = ["salt", "a red horse", "seven lamps", "a broken oar", "the west gate", "a wolf"];
+    var ITEMS = ["salt", "a red horse", "seven lamps", "a broken oar", "the west gate", "a wolf", "a bronze moon"];
     var placed = new Array(LOCI.length).fill(null);
     var held = -1, phase = "furnish", walked = [];
 
@@ -3737,7 +3738,7 @@
     var chips = document.createElement("div");
     chips.style.cssText = "display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.5rem;";
     var canvasHost = document.createElement("div");
-    canvasHost.style.cssText = "width:100%;height:210px;";
+    canvasHost.style.cssText = "width:100%;height:260px;";
     canvasHost.style.touchAction = "pan-y";
     var status = statusLine(3.2);
     wrap.appendChild(bar);
@@ -3809,8 +3810,8 @@
     });
 
     function layout() {
-      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 210;
-      return { w: w, h: h, px: function (nx) { return 20 + nx * (w - 40); }, py: function (ny) { return 18 + ny * (h - 46); } };
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 260;
+      return { w: w, h: h, px: function (nx) { return 20 + nx * (w - 40); }, py: function (ny) { return 24 + ny * (h - 62); } };
     }
     canvasHost.addEventListener("pointerdown", function (e) {
       var L = layout();
@@ -3842,16 +3843,48 @@
       var accent = cssVar("--accent", "#e6b366");
       var muted = cssVar("--muted", "#b89870");
 
-      // the house: a plan you are supposed to already know
-      ctx.strokeStyle = "rgba(255,255,255,.14)";
-      ctx.lineWidth = 1.4;
-      ctx.strokeRect(14.5, 12.5, L.w - 29, L.h - 36);
-      ctx.strokeStyle = "rgba(255,255,255,.09)";
+      // Simplified Roman domus: a Pompeian street house organized along
+      // the fauces-atrium-tablinum-peristyle axis, with side rooms opening
+      // onto that circulation rather than an abstract grid.
+      var left = L.px(0.04), right = L.px(0.96), top = L.py(0.05), bottom = L.py(0.95);
+      var wall = "rgba(255,255,255,.24)";
+      ctx.strokeStyle = wall;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(left, top, right - left, bottom - top);
+
+      function wallLine(x1, y1, x2, y2) {
+        ctx.beginPath(); ctx.moveTo(L.px(x1), L.py(y1)); ctx.lineTo(L.px(x2), L.py(y2)); ctx.stroke();
+      }
+      // Entrance shops and narrow fauces, leaving the central door open.
+      wallLine(0.04, 0.34, 0.25, 0.34); wallLine(0.04, 0.66, 0.25, 0.66);
+      wallLine(0.25, 0.05, 0.25, 0.41); wallLine(0.25, 0.59, 0.25, 0.95);
+      // Atrium side rooms with door gaps onto the central hall.
+      wallLine(0.25, 0.27, 0.48, 0.27); wallLine(0.25, 0.73, 0.48, 0.73);
+      wallLine(0.48, 0.05, 0.48, 0.37); wallLine(0.48, 0.63, 0.48, 0.95);
+      // Tablinum and passages into the rear court.
+      wallLine(0.48, 0.35, 0.63, 0.35); wallLine(0.48, 0.65, 0.63, 0.65);
+      wallLine(0.63, 0.05, 0.63, 0.40); wallLine(0.63, 0.60, 0.63, 0.95);
+      // Rear dining/service rooms around the peristyle.
+      wallLine(0.63, 0.28, 0.96, 0.28); wallLine(0.63, 0.72, 0.96, 0.72);
+      wallLine(0.80, 0.05, 0.80, 0.28); wallLine(0.82, 0.72, 0.82, 0.95);
+
+      // Impluvium and peristyle garden, the two spatial anchors.
+      ctx.fillStyle = "rgba(110,180,210,.15)";
+      ctx.strokeStyle = "rgba(140,210,235,.38)";
       ctx.lineWidth = 1;
-      [0.34, 0.62].forEach(function (fx) {
-        ctx.beginPath(); ctx.moveTo(14 + fx * (L.w - 28), 13); ctx.lineTo(14 + fx * (L.w - 28), L.h - 24); ctx.stroke();
+      ctx.fillRect(L.px(0.32), L.py(0.41), L.px(0.44) - L.px(0.32), L.py(0.59) - L.py(0.41));
+      ctx.strokeRect(L.px(0.32), L.py(0.41), L.px(0.44) - L.px(0.32), L.py(0.59) - L.py(0.41));
+      ctx.fillStyle = "rgba(100,150,80,.12)";
+      ctx.strokeStyle = "rgba(150,190,110,.32)";
+      ctx.fillRect(L.px(0.68), L.py(0.35), L.px(0.92) - L.px(0.68), L.py(0.65) - L.py(0.35));
+      ctx.strokeRect(L.px(0.68), L.py(0.35), L.px(0.92) - L.px(0.68), L.py(0.65) - L.py(0.35));
+
+      ctx.font = "8px ui-monospace, monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(255,255,255,.28)";
+      [[.14,.18,"shop"],[.14,.82,"shop"],[.37,.15,"cubiculum"],[.37,.85,"cubiculum"],[.56,.20,"ala"],[.56,.80,"ala"],[.88,.14,"triclinium"],[.90,.86,"service"]].forEach(function (room) {
+        ctx.fillText(room[2], L.px(room[0]), L.py(room[1]));
       });
-      ctx.beginPath(); ctx.moveTo(14, 12 + (L.h - 36) * 0.52); ctx.lineTo(14 + (L.w - 28) * 0.34, 12 + (L.h - 36) * 0.52); ctx.stroke();
 
       // the route, which is the index
       ctx.strokeStyle = "rgba(230,179,102,.45)";
