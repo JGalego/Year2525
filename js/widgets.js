@@ -2145,10 +2145,23 @@
       while (n > 0) { parts.unshift(n % 60); n = Math.floor(n / 60); }
       return parts.join(",") + " (base 60)";
     }
+    var note = "";
     function refresh() {
       status.innerHTML = ROWS.map(function (r) {
         return r.label + " <b>" + r.v + "</b> <span style='opacity:.6'>= " + sexagesimal(r.v) + "</span>";
-      }).join("<br>") + (fired ? '<br><span style="color:#8a3b12;">Fired. The ledger is permanent now — and permanently wrong, if it was wrong.</span>' : "");
+      }).join("<br>") +
+        (fired ? '<br><span style="color:#8a3b12;">Fired. The ledger is permanent now — and permanently wrong, if it was wrong.</span>' : "") +
+        (note ? '<br><span style="color:#8a3b12;">' + note + "</span>" : "");
+    }
+    // Smooth is meaningless on a fired tablet and Fire has nothing left to
+    // do, so the pair becomes: no smoothing, and a fresh lump of clay.
+    function syncButtons() {
+      smoothBtn.disabled = fired;
+      smoothBtn.title = fired ? "Fired clay does not smooth" : "Wipe the damp clay flat again";
+      fireBtn.textContent = fired ? "New tablet" : "Fire";
+      fireBtn.title = fired
+        ? "This one is finished. Take a fresh lump of clay."
+        : "Bake the tablet. There is no editing a fired tablet.";
     }
 
     var unitBtn = ctlButton(bar, "❘ one", "Impress a vertical wedge — worth one", function () {
@@ -2159,16 +2172,24 @@
     });
     setActive(unitBtn, true);
     spacer(bar);
-    ctlButton(bar, "Smooth", "Wipe the damp clay flat again", function () {
-      if (fired) { refresh(); return; }
+    var smoothBtn = ctlButton(bar, "Smooth", "Wipe the damp clay flat again", function () {
+      if (fired) return;
       ROWS.forEach(function (r) { r.v = 0; });
+      note = "";
       refresh();
     });
     var fireBtn = ctlButton(bar, "Fire", "Bake the tablet. There is no editing a fired tablet.", function () {
-      fired = true;
-      fireBtn.disabled = true;
+      if (fired) {
+        fired = false;
+        ROWS.forEach(function (r) { r.v = 0; });
+        note = "";
+      } else {
+        fired = true;
+      }
+      syncButtons();
       refresh();
     });
+    syncButtons();
 
     function layout() {
       var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 210;
@@ -2176,13 +2197,18 @@
       return { w: w, h: h, x: (w - tw) / 2, y: (h - th) / 2, tw: tw, th: th, rowH: th / 3.4 };
     }
     canvasHost.addEventListener("pointerdown", function (e) {
-      if (fired) { refresh(); return; }
+      if (fired) {
+        note = "The clay is fired. The stylus leaves no mark on it.";
+        refresh();
+        return;
+      }
       var L = layout();
       var r = canvasHost.getBoundingClientRect();
       var py = e.clientY - r.top;
       var idx = Math.floor((py - (L.y + L.th * 0.12)) / L.rowH);
       if (idx < 0 || idx >= ROWS.length) return;
       ROWS[idx].v = Math.min(3599, ROWS[idx].v + stylus);
+      note = "";
       refresh();
     });
 
