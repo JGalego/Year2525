@@ -514,8 +514,7 @@
   // it out of a fixed ambient matter budget, borrowing mass back from
   // whatever is already folded when the room runs short.
   function loomFold(mount) {
-    var COLS = 26, ROWS = 9, BUDGET = 58, TOP = 30;
-    var SEARCH_MS = 900;
+    var COLS = 30, ROWS = 9, BUDGET = 84, TOP = 30;
 
     // Bottom-aligned footprints. Cost is just the cell count, so the
     // budget arithmetic can never drift out of sync with what's drawn.
@@ -523,6 +522,8 @@
       { name: "Lamp",  cells: [[0,0],[1,0],[2,0],[1,1],[1,2],[0,3],[1,3],[2,3]] },
       { name: "Chair", cells: [[3,0],[3,1],[3,2],[0,3],[1,3],[2,3],[3,3],[0,4],[3,4]] },
       { name: "Table", cells: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[0,1],[5,1],[0,2],[5,2]] },
+      { name: "Bridge", cells: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[0,1],[3,1],[6,1],[0,2],[6,2]] },
+      { name: "Canopy", cells: [[0,0],[1,0],[2,0],[3,0],[4,0],[1,1],[3,1],[1,2],[3,2],[1,3],[3,3]] },
       { name: "Wall",  cells: (function () {
           var a = [];
           for (var y = 0; y < 7; y++) for (var x = 0; x < 3; x++) a.push([x, y]);
@@ -538,20 +539,49 @@
     var wrap = document.createElement("div");
     wrap.style.cssText = "width:100%;text-align:left;padding:.5rem;";
     var bar = controlBar();
+    var constraints = document.createElement("div");
+    constraints.style.cssText = "display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;margin:.25rem 0 .7rem;font:11px var(--font-mono);";
     var canvasHost = document.createElement("div");
     canvasHost.style.cssText = "width:100%;height:190px;";
     var status = statusLine(3.2);
     wrap.appendChild(bar);
+    wrap.appendChild(constraints);
     wrap.appendChild(canvasHost);
     wrap.appendChild(status);
     mount.appendChild(wrap);
 
-    var objects = [];        // { name, cells:[[gx,gy]], x0, x1, faults:[i] }
+    var requirements = { load: 55, lifetime: 50, porosity: 30 };
+    [
+      { key: "load", label: "Load" },
+      { key: "lifetime", label: "Lifetime" },
+      { key: "porosity", label: "Porosity" }
+    ].forEach(function (spec) {
+      var label = document.createElement("label");
+      label.style.cssText = "display:grid;gap:.2rem;";
+      var readout = document.createElement("span");
+      readout.textContent = spec.label + " " + requirements[spec.key] + "%";
+      var input = document.createElement("input");
+      input.type = "range"; input.min = 0; input.max = 100; input.value = requirements[spec.key];
+      input.addEventListener("input", function () {
+        requirements[spec.key] = +input.value;
+        readout.textContent = spec.label + " " + input.value + "%";
+      });
+      label.appendChild(readout);
+      label.appendChild(input);
+      constraints.appendChild(label);
+    });
+
+    var objects = [];        // { name, cells:[[gx,gy]], mass, x0, x1, faults:[i] }
     var searching = null;    // { shape, place, t0 }
     var settleBtn = null;
 
     function used() {
-      return objects.reduce(function (a, o) { return a + o.cells.length; }, 0);
+      return objects.reduce(function (a, o) { return a + o.mass; }, 0);
+    }
+    function costFor(shape) {
+      var structural = 0.7 + requirements.load / 170 + requirements.lifetime / 260;
+      var voidCredit = requirements.porosity / 330;
+      return Math.max(shape.cost, Math.ceil(shape.cost * (structural - voidCredit)));
     }
     function faulted() {
       return objects.filter(function (o) { return o.faults.length; });
@@ -570,29 +600,32 @@
 
     function fold(shape) {
       if (searching) return;
-      if (shape.cost > BUDGET) {
-        say("<b>" + shape.name + "</b> needs " + shape.cost + " units. The room's entire budget is " + BUDGET + ". Not castable here.");
+      var cost = costFor(shape);
+      if (cost > BUDGET) {
+        say("<b>" + shape.name + "</b> needs " + cost + " units under these constraints. The room's entire budget is " + BUDGET + ". Not castable here.");
         return;
       }
       // Borrow mass back from the oldest folds until there is room, both in
       // the matter budget and along the floor.
       var borrowed = [];
       var place = findPlacement(shape);
-      while ((BUDGET - used() < shape.cost || place < 0) && objects.length) {
+      while ((BUDGET - used() < cost || place < 0) && objects.length) {
         borrowed.push(objects.shift().name);
         place = findPlacement(shape);
       }
       if (place < 0) { say("No floor left to hold a <b>" + shape.name + "</b>."); return; }
-      searching = { shape: shape, place: place, t0: performance.now(), borrowed: borrowed };
+      var complexity = 700 + requirements.load * 5 + requirements.lifetime * 4 + requirements.porosity * 3;
+      searching = { shape: shape, place: place, t0: performance.now(), borrowed: borrowed, cost: cost, duration: complexity };
     }
 
     function commit() {
       var shape = searching.shape, place = searching.place;
       var top = ROWS - shape.h;
       var cells = shape.cells.map(function (c) { return [place + c[0], top + c[1]]; });
-      var obj = { name: shape.name, cells: cells, x0: place, x1: place + shape.w - 1, faults: [] };
+      var obj = { name: shape.name, cells: cells, mass: searching.cost, x0: place, x1: place + shape.w - 1, faults: [] };
       // A folding fault: matter caught between two stable configurations.
-      if (Math.random() < 0.22) {
+      var faultRisk = 0.06 + requirements.load / 500 + requirements.porosity / 700 - requirements.lifetime / 850;
+      if (Math.random() < faultRisk) {
         var pool = cells.map(function (_, i) { return i; });
         for (var k = 0; k < 2 && pool.length; k++) {
           obj.faults.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
@@ -606,7 +639,7 @@
 
     function report(obj, borrowed) {
       var lines = [];
-      lines.push("<b>" + obj.name + "</b> cast — " + obj.cells.length + " units. " +
+      lines.push("<b>" + obj.name + "</b> cast — " + obj.mass + " matter units across " + obj.cells.length + " active cells. " +
         (BUDGET - used()) + " of " + BUDGET + " left in the room's ambient budget.");
       if (borrowed && borrowed.length) {
         lines.push("Borrowed the mass from the " + borrowed.join(" and the ") +
@@ -623,7 +656,7 @@
     function syncSettle() { settleBtn.disabled = !faulted().length; }
 
     SHAPES.forEach(function (s) {
-      ctlButton(bar, s.name, "Intend a " + s.name.toLowerCase() + " — " + s.cost + " units of matter",
+      ctlButton(bar, s.name, "Intend a " + s.name.toLowerCase() + " under the current constraints",
         function () { fold(s); });
     });
     spacer(bar);
@@ -662,7 +695,7 @@
       ctx.clearRect(0, 0, w, h);
 
       // budget bar
-      var u = used() + (searching ? searching.shape.cost : 0);
+      var u = used() + (searching ? searching.cost : 0);
       ctx.font = "9px ui-monospace, monospace";
       ctx.fillStyle = cssVar("--muted", "#a8977a");
       ctx.fillText("AMBIENT MATTER BUDGET", 1, 9);
@@ -695,7 +728,7 @@
       });
 
       if (searching) {
-        var t = Math.min(1, (now - searching.t0) / SEARCH_MS);
+        var t = Math.min(1, (now - searching.t0) / searching.duration);
         var shape = searching.shape, place = searching.place;
         var top = ROWS - shape.h;
         // The search: candidate configurations condensing out of noise as
@@ -711,7 +744,9 @@
         }
         ctx.font = "10px ui-monospace, monospace";
         ctx.fillStyle = accent2;
-        ctx.fillText("searching configuration space · energy " + (100 - Math.round(t * 100)),
+        var candidates = Math.round(18000 + requirements.load * 731 + requirements.lifetime * 419 + requirements.porosity * 883);
+        var stability = Math.round(t * (82 + requirements.lifetime * 0.16 - requirements.porosity * 0.12));
+        ctx.fillText("candidates " + candidates.toLocaleString() + " · stability " + stability + "% · entropy " + (100 - Math.round(t * 91)),
           place * cw, TOP + top * ch - 4);
         if (t >= 1) commit();
       }
