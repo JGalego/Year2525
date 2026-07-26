@@ -4,7 +4,7 @@
 
 Inspired by Zager & Evans' *In the Year 2525*, this is a static, single-page museum that scrolls forward through the invented future of software — from today's apps, through Mandates, Cultivars, Foldings, Chorales, Tilth, Liturgies, Weathers, and Resonances, to a closing curator's note from the year 12,525.
 
-There is a hidden way to go the other direction instead: a **Past Lightcone**, regressing through the real history of computation and media — modern web, skeuomorphism, Windows, the Amiga, System 7, DOS, green-phosphor terminals, mainframes, punch cards, Jacquard looms, Babbage, the abacus, clay tablets, knotted rope, memory palaces, language, fire, and pre-symbolic cognition. Find the year counter near the top of the page. Or try the Konami code.
+There is a hidden way to go the other direction instead: a **Past Lightcone**, regressing through the real history of computation and media — modern web, skeuomorphism, Windows, the ZX Spectrum, System 7, DOS, green-phosphor terminals, mainframes, punch cards, Jacquard looms, Babbage, the abacus, clay tablets, knotted rope, memory palaces, language, fire, and pre-symbolic cognition. Find the year counter near the top of the page. Or try the Konami code.
 
 ## Stack
 

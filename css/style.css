@@ -375,8 +375,44 @@ body[data-past="win95"] { --bg:#c0c0c0; --fg:#000000; --muted:#333333; --accent:
 body[data-past="win95"] .past { box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 4px #808080; }
 body[data-past="win95"] h2 { color: #000080; }
 
-body[data-past="amiga"] { --bg:#4b4b7a; --fg:#e8e8ff; --muted:#a8a8d8; --accent:#ff7edb; --border:#8a8ac0; --font-body: var(--font-mono); --font-display: var(--font-mono); }
-body[data-past="amiga"] .past { background: repeating-linear-gradient(45deg, #45456e, #45456e 12px, #4b4b7a 12px, #4b4b7a 24px); }
+.win95-window {
+  width: 100%; max-width: 300px; margin: 1.4rem auto 0; text-align: left;
+  background: #c0c0c0; color: #000;
+  box-shadow: inset -1px -1px 0 #0a0a0a, inset 1px 1px 0 #dfdfdf, inset -2px -2px 0 #808080, inset 2px 2px 0 #fff;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+}
+.win95-titlebar {
+  background: linear-gradient(90deg, #08216b, #1084d0 65%, #a5cef7);
+  color: #fff; font-weight: 700; font-size: .72rem; letter-spacing: .02em;
+  padding: .25rem .35rem; display: flex; align-items: center; justify-content: space-between;
+}
+.win95-window-btns { display: flex; gap: 2px; }
+.win95-window-btns span {
+  width: 15px; height: 13px; background: #c0c0c0; color: #000;
+  font-size: .6rem; line-height: 13px; text-align: center;
+  box-shadow: inset -1px -1px 0 #808080, inset 1px 1px 0 #fff;
+}
+.win95-window-body {
+  padding: .65rem .7rem; font-family: "Courier New", monospace; font-size: .78rem; color: #000;
+}
+
+body[data-past="zxspectrum"] { --bg:#c9c4b6; --fg:#241f18; --muted:#6b6558; --accent:#cc1414; --border:#8a8374; --font-body: Georgia, serif; --font-display: Georgia, serif; }
+body[data-past="zxspectrum"] .past { background: linear-gradient(#d4d0c2, #c9c4b6); }
+.zx-loading-strip {
+  width: 200px; height: 14px; margin: 1.4rem auto 0; border-radius: 2px;
+  box-shadow: 0 0 0 2px #241f18;
+  animation: zx-flicker 1.4s steps(1) infinite;
+}
+@keyframes zx-flicker {
+  0%   { background: #000000; }
+  14%  { background: #0000d7; }
+  28%  { background: #d70000; }
+  42%  { background: #d700d7; }
+  57%  { background: #009900; }
+  71%  { background: #00a7a7; }
+  85%  { background: #b7b700; }
+  100% { background: #000000; }
+}
 
 body[data-past="system7"] { --bg:#ffffff; --fg:#000000; --muted:#555555; --accent:#000000; --border:#000000; --font-body: "Chicago", "Helvetica Neue", Helvetica, sans-serif; --font-display: "Chicago", "Helvetica Neue", Helvetica, sans-serif; }
 body[data-past="system7"] .past { background: repeating-linear-gradient(45deg,#fff,#fff 2px,#f0f0f0 2px,#f0f0f0 4px); }
