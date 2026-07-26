@@ -551,7 +551,7 @@ body[data-era="beyond"] {
 .museum-text .return-hint { color: var(--muted); font-style: italic; }
 
 /* ==========================================================================
-   PAST LIGHTCONE
+   THE ARCHIVE
    ========================================================================== */
 
 body[data-mode="past"] { --transition-era: background-color .5s ease, color .5s ease, border-color .5s ease; }
@@ -685,7 +685,7 @@ body[data-past="fire"] .past { background: radial-gradient(circle at 50% 60%, rg
 
 body[data-past="presymbolic"] { --bg:#050403; --fg:#c9c2b8; --muted:#6b6459; --accent:#8a8074; --border:#2a2620; --font-body: Georgia, serif; }
 
-/* widgets specific to past-lightcone */
+/* widgets specific to the archive */
 .dos-terminal, .punchcard-widget, .abacus-widget, .past-widget {
   width: 100%; max-width: 560px;
   margin: 1.5rem auto 0;
