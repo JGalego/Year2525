@@ -237,7 +237,7 @@
   function titleNode(era) {
     var d = document.createElement("div");
     d.className = "presenter-sub presenter-sub-title";
-    ["era-icon", "era-kicker", "era-title", "era-tagline"].forEach(function (cls) {
+    ["era-icon", "era-kicker", "era-title", "era-tagline", "era-art"].forEach(function (cls) {
       var src = era.querySelector("." + cls);
       if (src) d.appendChild(src.cloneNode(true));
     });
