@@ -2906,6 +2906,31 @@
       Diamond: function (c, k) {
         var d = Math.abs(k - HOOKS / 2 + 0.5) + Math.abs(c - CARDS / 2 + 0.5);
         return d < 5 ? 1 : 0;
+      },
+      Houndstooth: function (c, k) {
+        var block = (Math.floor(c / 2) + Math.floor(k / 3)) % 2;
+        return block !== ((c + k) % 4 === 0) ? 1 : 0;
+      },
+      Honeycomb: function (c, k) {
+        return ((c + k * 2) % 6 < 2 || (c - k * 2 + 60) % 6 < 2) ? 1 : 0;
+      },
+      Chevron: function (c, k) {
+        var fold = c < CARDS / 2 ? c : CARDS - 1 - c;
+        return (k + fold * 2) % 6 < 2 ? 1 : 0;
+      },
+      Rose: function (c, k) {
+        var x = k - (HOOKS - 1) / 2, y = c - (CARDS - 1) / 2;
+        var petal = Math.abs(Math.sin(Math.atan2(y, x) * 4)) * 3.2;
+        return Math.hypot(x, y) < 2.4 + petal ? 1 : 0;
+      },
+      Maze: function (c, k) {
+        return ((c % 4 === 0 || k % 4 === 0) && (c + k) % 3 !== 0) ? 1 : 0;
+      },
+      Portrait: function (c, k) {
+        var face = k > 2 && k < 9 && c > 0 && c < 9;
+        var eyes = (c === 3 && (k === 4 || k === 7));
+        var mouth = c === 7 && k > 4 && k < 8;
+        return face && !eyes && !mouth ? 1 : 0;
       }
     };
     function applyPreset(name) {
