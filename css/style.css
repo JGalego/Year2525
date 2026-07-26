@@ -22,6 +22,8 @@
 
 html { scroll-behavior: smooth; }
 
+.icon-sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   * { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
@@ -101,15 +103,24 @@ code { font-family: var(--font-mono); background: rgba(255,255,255,0.08); paddin
 }
 .dotnav a {
   position: relative;
-  width: 8px; height: 8px;
+  width: 22px; height: 22px;
   border-radius: 50%;
-  background: var(--border);
-  display: block;
+  background: transparent;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   text-decoration: none;
-  transition: background .3s ease, transform .3s ease;
+  transition: border-color .3s ease, transform .3s ease;
 }
-.dotnav a:hover { transform: scale(1.4); }
-.dotnav a.active { background: var(--accent); }
+.dotnav a:hover { transform: scale(1.15); border-color: var(--accent); }
+.dotnav a.active { border-color: var(--accent); }
+.dotnav-icon {
+  width: 13px; height: 13px;
+  color: var(--muted);
+  transition: color .3s ease;
+}
+.dotnav a.active .dotnav-icon, .dotnav a:hover .dotnav-icon { color: var(--accent); }
 .dotnav a::after {
   content: attr(data-label);
   position: absolute;
@@ -154,6 +165,16 @@ body[data-mode="past"] .dotnav { display: none; }
   font-size: .75rem;
   color: var(--accent);
   margin-bottom: .75rem;
+  display: flex;
+  align-items: center;
+  gap: .55em;
+}
+
+.era-icon {
+  width: 1.5em;
+  height: 1.5em;
+  flex: none;
+  color: var(--accent);
 }
 
 .era-title {
@@ -334,7 +355,8 @@ body[data-mode="past"] { --transition-era: background-color .5s ease, color .5s 
   border-bottom: 1px solid var(--border);
   transition: var(--transition-era);
 }
-.past h2 { font-size: clamp(1.8rem, 5vw, 2.6rem); margin-bottom: .3em; }
+.past h2 { font-size: clamp(1.8rem, 5vw, 2.6rem); margin-bottom: .3em; display: flex; align-items: center; justify-content: center; gap: .35em; }
+.past-icon { width: .85em; height: .85em; flex: none; color: var(--accent); }
 .past-date { display: block; font-family: var(--font-mono); font-size: .75rem; color: var(--muted); font-weight: 400; letter-spacing: .05em; margin-top: .3em; }
 .past p { max-width: 56ch; }
 .past-caption { font-size: .85rem; color: var(--muted); font-style: italic; }
