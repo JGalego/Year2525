@@ -396,7 +396,8 @@ body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05r
 .era-tagline {
   font-size: 1.15rem;
   color: var(--muted);
-  max-width: 42em;
+  width: 100%;
+  max-width: none;
   margin-bottom: 2.5rem;
 }
 
