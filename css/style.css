@@ -424,11 +424,12 @@ body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05r
   background: rgba(255,255,255,0.02);
 }
 .callout h4, .example-card h4, .historical-note h4 {
-  font-size: .8rem;
+  font-size: .72rem;
   text-transform: uppercase;
-  letter-spacing: .08em;
+  letter-spacing: .09em;
   color: var(--accent);
-  margin-bottom: .6em;
+  opacity: .85;
+  margin-bottom: .7em;
 }
 .example-card h4 span { color: var(--fg); text-transform: none; letter-spacing: 0; font-weight: 700; }
 .day-in-life { font-style: italic; opacity: .9; border-top: 1px dashed var(--border); padding-top: 1em; margin-top: 1em; }

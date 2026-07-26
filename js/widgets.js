@@ -360,139 +360,474 @@
   }
 
   // ---------------------------------------------------------------
-  // 4545 — Fold matter into a target shape
+  // Shared control chrome for the era widgets
   // ---------------------------------------------------------------
+  var BTN_CSS = "padding:.35rem .7rem;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--fg);cursor:pointer;font:inherit;";
+
+  function controlBar() {
+    var bar = document.createElement("div");
+    // borrows .cg-controls' hover styling from the stylesheet
+    bar.className = "cg-controls";
+    bar.style.cssText = "display:flex;gap:.5rem;margin-bottom:.6rem;font-family:var(--font-display);font-size:.8rem;flex-wrap:wrap;align-items:center;";
+    return bar;
+  }
+  function ctlButton(bar, label, title, onClick) {
+    var b = document.createElement("button");
+    b.textContent = label;
+    b.title = title;
+    b.style.cssText = BTN_CSS;
+    b.addEventListener("click", onClick);
+    bar.appendChild(b);
+    return b;
+  }
+  function setActive(btn, on) {
+    btn.style.borderColor = on ? "var(--accent)" : "var(--border)";
+    btn.style.color = on ? "var(--accent)" : "var(--fg)";
+    btn.style.background = on ? "color-mix(in srgb, var(--accent) 14%, transparent)" : "transparent";
+  }
+  function statusLine(minEm) {
+    var p = document.createElement("p");
+    p.style.cssText = "margin:.6rem 0 0;font-family:var(--font-mono);font-size:.78rem;line-height:1.55;min-height:" + (minEm || 2.6) + "em;";
+    return p;
+  }
+  function spacer(bar) {
+    var s = document.createElement("span");
+    s.style.marginLeft = "auto";
+    bar.appendChild(s);
+    return s;
+  }
+
+  // ---------------------------------------------------------------
+  // 4545 — Cast a Folding into the room's matter budget
+  // ---------------------------------------------------------------
+  // The previous version drew a target silhouette and asked you to click
+  // its cells in one at a time. That is exactly the thing this era says
+  // nobody does any more — it was tracing a stencil, i.e. writing the
+  // instructions by hand. Here you state an intention instead; a Loom
+  // searches a space of configurations for one that holds, and you pay for
+  // it out of a fixed ambient matter budget, borrowing mass back from
+  // whatever is already folded when the room runs short.
   function loomFold(mount) {
-    var wrap = document.createElement("div");
-    wrap.style.cssText = "text-align:center;padding:1rem;";
-    var size = 8;
-    var target = new Set();
-    // a simple "chair-ish" silhouette
-    [ [3,1],[4,1],[3,2],[4,2],[3,3],[4,3],[2,4],[3,4],[4,4],[5,4],[3,5],[4,5],[3,6],[4,6],[2,6],[5,6] ]
-      .forEach(function (p) { target.add(p[0] + "," + p[1]); });
+    var COLS = 26, ROWS = 9, BUDGET = 58, TOP = 30;
+    var SEARCH_MS = 900;
 
-    var grid = document.createElement("div");
-    grid.style.cssText = "display:grid;grid-template-columns:repeat(" + size + ",minmax(0,1fr));grid-auto-rows:minmax(0,1fr);gap:2px;margin:0 auto;width:min(100%,222px);aspect-ratio:1/1;";
-    grid.style.touchAction = "pan-y";
-    var filled = new Set();
-    var msg = document.createElement("p");
-    msg.style.cssText = "margin-top:1rem;font-family:var(--font-mono);font-size:.85rem;min-height:1.5em;";
-    var dragging = false;
-    var dragValue = true;
-
-    function setCellState(cell, shouldFill) {
-      var k = cell.dataset.key;
-      if (shouldFill) {
-        filled.add(k);
-        cell.style.background = "var(--accent)";
-      } else {
-        filled.delete(k);
-        cell.style.background = "transparent";
-      }
-      checkMatch();
-    }
-
-    function stopDrag() {
-      dragging = false;
-      grid.style.touchAction = "pan-y";
-    }
-
-    window.addEventListener("pointerup", stopDrag);
-    window.addEventListener("pointercancel", stopDrag);
-
-    for (var y = 0; y < size; y++) {
-      for (var x = 0; x < size; x++) {
-        var cell = document.createElement("div");
-        var key = x + "," + y;
-        cell.dataset.key = key;
-        var isTarget = target.has(key);
-        cell.style.cssText = "border:1px dashed " + (isTarget ? "var(--accent)" : "var(--border)") + ";border-radius:3px;cursor:pointer;min-width:0;min-height:0;";
-        cell.addEventListener("pointerdown", function (e) {
-          dragging = true;
-          grid.style.touchAction = "none";
-          dragValue = !filled.has(this.dataset.key);
-          setCellState(this, dragValue);
-        });
-        grid.appendChild(cell);
-      }
-    }
-
-    grid.addEventListener("pointermove", function (e) {
-      if (!dragging) return;
-      var el = document.elementFromPoint(e.clientX, e.clientY);
-      if (!el || !el.dataset || !el.dataset.key) return;
-      setCellState(el, dragValue);
+    // Bottom-aligned footprints. Cost is just the cell count, so the
+    // budget arithmetic can never drift out of sync with what's drawn.
+    var SHAPES = [
+      { name: "Lamp",  cells: [[0,0],[1,0],[2,0],[1,1],[1,2],[0,3],[1,3],[2,3]] },
+      { name: "Chair", cells: [[3,0],[3,1],[3,2],[0,3],[1,3],[2,3],[3,3],[0,4],[3,4]] },
+      { name: "Table", cells: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[0,1],[5,1],[0,2],[5,2]] },
+      { name: "Wall",  cells: (function () {
+          var a = [];
+          for (var y = 0; y < 7; y++) for (var x = 0; x < 3; x++) a.push([x, y]);
+          return a;
+        })() }
+    ];
+    SHAPES.forEach(function (s) {
+      s.cost = s.cells.length;
+      s.w = Math.max.apply(null, s.cells.map(function (c) { return c[0]; })) + 1;
+      s.h = Math.max.apply(null, s.cells.map(function (c) { return c[1]; })) + 1;
     });
 
-    function checkMatch() {
-      var match = filled.size === target.size;
-      if (match) { for (var v of filled) if (!target.has(v)) { match = false; break; } }
-      msg.textContent = match ? "Folding stable. Atrium holds the shape." : "Folding unresolved — " + filled.size + " / " + target.size + " cells committed.";
-    }
-    checkMatch();
-
-    wrap.appendChild(grid);
-    wrap.appendChild(msg);
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;text-align:left;padding:.5rem;";
+    var bar = controlBar();
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:190px;";
+    var status = statusLine(3.2);
+    wrap.appendChild(bar);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(status);
     mount.appendChild(wrap);
+
+    var objects = [];        // { name, cells:[[gx,gy]], x0, x1, faults:[i] }
+    var searching = null;    // { shape, place, t0 }
+    var settleBtn = null;
+
+    function used() {
+      return objects.reduce(function (a, o) { return a + o.cells.length; }, 0);
+    }
+    function faulted() {
+      return objects.filter(function (o) { return o.faults.length; });
+    }
+    function occupiedCols() {
+      return objects.map(function (o) { return [o.x0, o.x1]; });
+    }
+    function findPlacement(shape) {
+      var spans = occupiedCols();
+      for (var x = 0; x + shape.w <= COLS; x++) {
+        var clash = spans.some(function (s) { return x <= s[1] + 1 && x + shape.w - 1 >= s[0] - 1; });
+        if (!clash) return x;
+      }
+      return -1;
+    }
+
+    function fold(shape) {
+      if (searching) return;
+      if (shape.cost > BUDGET) {
+        say("<b>" + shape.name + "</b> needs " + shape.cost + " units. The room's entire budget is " + BUDGET + ". Not castable here.");
+        return;
+      }
+      // Borrow mass back from the oldest folds until there is room, both in
+      // the matter budget and along the floor.
+      var borrowed = [];
+      var place = findPlacement(shape);
+      while ((BUDGET - used() < shape.cost || place < 0) && objects.length) {
+        borrowed.push(objects.shift().name);
+        place = findPlacement(shape);
+      }
+      if (place < 0) { say("No floor left to hold a <b>" + shape.name + "</b>."); return; }
+      searching = { shape: shape, place: place, t0: performance.now(), borrowed: borrowed };
+    }
+
+    function commit() {
+      var shape = searching.shape, place = searching.place;
+      var top = ROWS - shape.h;
+      var cells = shape.cells.map(function (c) { return [place + c[0], top + c[1]]; });
+      var obj = { name: shape.name, cells: cells, x0: place, x1: place + shape.w - 1, faults: [] };
+      // A folding fault: matter caught between two stable configurations.
+      if (Math.random() < 0.22) {
+        var pool = cells.map(function (_, i) { return i; });
+        for (var k = 0; k < 2 && pool.length; k++) {
+          obj.faults.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+        }
+      }
+      objects.push(obj);
+      var borrowed = searching.borrowed;
+      searching = null;
+      report(obj, borrowed);
+    }
+
+    function report(obj, borrowed) {
+      var lines = [];
+      lines.push("<b>" + obj.name + "</b> cast — " + obj.cells.length + " units. " +
+        (BUDGET - used()) + " of " + BUDGET + " left in the room's ambient budget.");
+      if (borrowed && borrowed.length) {
+        lines.push("Borrowed the mass from the " + borrowed.join(" and the ") +
+          ". " + (borrowed.length > 1 ? "They" : "It") + " will have to wait its turn.");
+      }
+      if (obj.faults.length) {
+        lines.push('<span style="color:#f0a35e;">Folding fault — ' + obj.faults.length +
+          " cells caught between two stable configurations. A bug you can stub your toe on.</span>");
+      }
+      say(lines.join("<br>"));
+      syncSettle();
+    }
+    function say(html) { status.innerHTML = html; }
+    function syncSettle() { settleBtn.disabled = !faulted().length; }
+
+    SHAPES.forEach(function (s) {
+      ctlButton(bar, s.name, "Intend a " + s.name.toLowerCase() + " — " + s.cost + " units of matter",
+        function () { fold(s); });
+    });
+    spacer(bar);
+    settleBtn = ctlButton(bar, "Settle", "Re-search a faulted folding until it holds", function () {
+      var f = faulted()[0];
+      if (!f) return;
+      f.faults = [];
+      say("Refolded. <b>" + f.name + "</b> settled into a stable configuration.");
+      syncSettle();
+    });
+    ctlButton(bar, "Reset", "Dissolve everything back to ambient matter", function () {
+      objects = [];
+      searching = null;
+      say("Room returned to ambient matter. " + BUDGET + " of " + BUDGET + " units free.");
+      syncSettle();
+    });
+    syncSettle();
+    say("Nothing folded. " + BUDGET + " of " + BUDGET + " units of ambient matter free.<br>" +
+      "Pick an intention — you never say how, only what.");
+
+    var c = makeCanvas(canvasHost);
+    var ctx = c.ctx;
+
+    function cell(cw, ch, gx, gy, color, alpha) {
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = color;
+      ctx.fillRect(gx * cw + 0.8, TOP + gy * ch + 0.8, cw - 1.6, ch - 1.6);
+      ctx.globalAlpha = 1;
+    }
+
+    function frame(now) {
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 190;
+      var cw = w / COLS, ch = (h - TOP - 10) / ROWS;
+      var accent = cssVar("--accent", "#f0b429");
+      var accent2 = cssVar("--accent2", "#f97316");
+      ctx.clearRect(0, 0, w, h);
+
+      // budget bar
+      var u = used() + (searching ? searching.shape.cost : 0);
+      ctx.font = "9px ui-monospace, monospace";
+      ctx.fillStyle = cssVar("--muted", "#a8977a");
+      ctx.fillText("AMBIENT MATTER BUDGET", 1, 9);
+      ctx.fillStyle = "rgba(255,255,255,0.08)";
+      ctx.fillRect(0, 14, w, 7);
+      ctx.fillStyle = accent;
+      ctx.globalAlpha = 0.85;
+      ctx.fillRect(0, 14, w * Math.min(1, u / BUDGET), 7);
+      ctx.globalAlpha = 1;
+
+      // floor
+      ctx.strokeStyle = "rgba(255,255,255,0.18)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, TOP + ROWS * ch + 0.5);
+      ctx.lineTo(w, TOP + ROWS * ch + 0.5);
+      ctx.stroke();
+
+      objects.forEach(function (o) {
+        o.cells.forEach(function (p, i) {
+          var isFault = o.faults.indexOf(i) >= 0;
+          if (isFault) {
+            // oscillating between the two configurations it is stuck between
+            var osc = 0.5 + 0.5 * Math.sin(now / 90);
+            cell(cw, ch, p[0], p[1], "#f0a35e", 0.35 + osc * 0.6);
+          } else {
+            cell(cw, ch, p[0], p[1], accent, 0.9);
+          }
+        });
+      });
+
+      if (searching) {
+        var t = Math.min(1, (now - searching.t0) / SEARCH_MS);
+        var shape = searching.shape, place = searching.place;
+        var top = ROWS - shape.h;
+        // The search: candidate configurations condensing out of noise as
+        // the Loom's energy falls.
+        shape.cells.forEach(function (p) {
+          if (Math.random() < t * t) cell(cw, ch, place + p[0], top + p[1], accent, 0.85);
+        });
+        var noise = Math.round((1 - t) * 26);
+        for (var n = 0; n < noise; n++) {
+          var nx = place + Math.floor(Math.random() * shape.w);
+          var ny = top + Math.floor(Math.random() * shape.h);
+          cell(cw, ch, nx, ny, accent2, 0.25 + Math.random() * 0.4);
+        }
+        ctx.font = "10px ui-monospace, monospace";
+        ctx.fillStyle = accent2;
+        ctx.fillText("searching configuration space · energy " + (100 - Math.round(t * 100)),
+          place * cw, TOP + top * ch - 4);
+        if (t >= 1) commit();
+      }
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
   }
 
   // ---------------------------------------------------------------
   // 5555 — Convene a Chorale
   // ---------------------------------------------------------------
+  // The previous version was four sliders driving four drifting blobs: it
+  // produced no result, so there was nothing to read off it and no reason
+  // to touch it twice. A Chorale's whole purpose is to *resolve* — to land
+  // somewhere no single member proposed — under a dissent-preservation
+  // quota, and to cost something on the way out. All three are now visible.
   function choraleBraid(mount) {
-    var wrap = document.createElement("div");
-    wrap.style.cssText = "width:100%;padding:1rem;text-align:left;";
-    var canvasHost = document.createElement("div");
-    canvasHost.style.cssText = "width:100%;height:140px;margin-bottom:1rem;";
-    var slidersHost = document.createElement("div");
-    wrap.appendChild(canvasHost);
-    wrap.appendChild(slidersHost);
-    mount.appendChild(wrap);
-
     var FLOOR = 12;
     var voices = [
-      { label: "Voice I", color: "#d8b4fe", v: 70 },
-      { label: "Voice II", color: "#f472b6", v: 55 },
-      { label: "Voice III", color: "#7dd3fc", v: 40 },
-      { label: "Dissent", color: "#fbbf24", v: 30 }
+      { label: "Voice I",   color: "#d8b4fe", pos: [0.20, 0.30], v: 70, blurb: "keep the harbour working" },
+      { label: "Voice II",  color: "#f472b6", pos: [0.76, 0.24], v: 55, blurb: "keep the rents survivable" },
+      { label: "Voice III", color: "#7dd3fc", pos: [0.62, 0.78], v: 40, blurb: "keep the water clean" },
+      { label: "Dissent",   color: "#fbbf24", pos: [0.14, 0.84], v: 30, blurb: "keep the plot unbuilt" }
     ];
+
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;padding:.5rem;text-align:left;";
+    var bar = controlBar();
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:168px;margin-bottom:.7rem;";
+    var slidersHost = document.createElement("div");
+    var status = statusLine(3.4);
+    wrap.appendChild(bar);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(slidersHost);
+    wrap.appendChild(status);
+    mount.appendChild(wrap);
+
+    var convened = true;
+    var braidLoad = 0;       // how deeply merged, accumulating over time
+    var lifetimeResidue = 0;
+    var quotaMsg = "";
+    var quotaUntil = 0;
+    var inputs = [];
+
     voices.forEach(function (voice) {
       var row = document.createElement("label");
-      row.style.cssText = "display:flex;align-items:center;gap:.75rem;margin-bottom:.4rem;font-size:.8rem;font-family:var(--font-display);";
+      row.style.cssText = "display:flex;align-items:center;gap:.75rem;margin-bottom:.35rem;font-size:.78rem;font-family:var(--font-display);";
       row.innerHTML = '<span style="width:5.5em;color:' + voice.color + ';">' + voice.label + '</span>';
       var input = document.createElement("input");
       input.type = "range"; input.min = 0; input.max = 100; input.value = voice.v;
       input.style.flex = "1";
       input.addEventListener("input", function () {
         var val = +input.value;
-        if (val < FLOOR) { val = FLOOR; input.value = FLOOR; }
+        if (convened && val < FLOOR) {
+          val = FLOOR;
+          input.value = FLOOR;
+          // The quota is the whole governance point of the era, so it says
+          // so out loud instead of silently refusing to move.
+          quotaMsg = "Dissent-preservation quota — <b>" + voice.label + "</b> cannot be smoothed below " +
+            FLOOR + "%. Enforced by the Braider ethics board.";
+          quotaUntil = performance.now() + 3200;
+        }
         voice.v = val;
       });
       row.appendChild(input);
+      inputs.push(input);
       slidersHost.appendChild(row);
     });
 
+    function setConvened(on) {
+      convened = on;
+      inputs.forEach(function (i) { i.disabled = !on; });
+      convBtn.disabled = on;
+      unbraidBtn.disabled = !on;
+    }
+
+    var convBtn = ctlButton(bar, "Convene", "Braid the voices back into a session", function () {
+      voices.forEach(function (v, i) { v.v = [70, 55, 40, 30][i]; inputs[i].value = v.v; });
+      braidLoad = 0;
+      quotaMsg = "";
+      setConvened(true);
+    });
+    var unbraidBtn = ctlButton(bar, "Unbraid", "End the session — and find out what didn't separate cleanly", function () {
+      var residue = Math.min(38, Math.round(braidLoad * 7));
+      lifetimeResidue += residue;
+      voices.forEach(function (v, i) { v.v = 0; inputs[i].value = 0; });
+      setConvened(false);
+      status.innerHTML = "Unbraided after a " + braidLoad.toFixed(1) + "-unit braid. " +
+        (residue > 12
+          ? '<span style="color:#f0a35e;">' + residue + "% residue — merged patterns that didn't fully come apart.</span>"
+          : residue + "% residue. A clean enough separation.") +
+        "<br>Lifetime residue carried by this venue: " + lifetimeResidue + "%.";
+    });
+    spacer(bar);
+    ctlButton(bar, "Reset", "Clear the venue, residue and all", function () {
+      voices.forEach(function (v, i) { v.v = [70, 55, 40, 30][i]; inputs[i].value = v.v; });
+      braidLoad = 0;
+      lifetimeResidue = 0;
+      quotaMsg = "";
+      setConvened(true);
+    });
+    setConvened(true);
+
     var c = makeCanvas(canvasHost);
     var ctx = c.ctx;
-    var t = 0;
-    function frame() {
-      t += 0.02;
-      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 140;
+    var last = performance.now();
+
+    function frame(now) {
+      var dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 168;
+      var pad = 22;
+      var bw = w - pad * 2, bh = h - pad * 2;
       ctx.clearRect(0, 0, w, h);
-      ctx.globalCompositeOperation = "lighter";
-      voices.forEach(function (voice, i) {
-        var amp = voice.v / 100;
+
+      var total = voices.reduce(function (a, v) { return a + v.v; }, 0);
+      if (convened) braidLoad += (total / 400) * dt;
+
+      // the shared value space
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(pad + 0.5, pad + 0.5, bw, bh);
+      ctx.setLineDash([2, 5]);
+      ctx.beginPath();
+      ctx.moveTo(pad + bw / 2, pad); ctx.lineTo(pad + bw / 2, pad + bh);
+      ctx.moveTo(pad, pad + bh / 2); ctx.lineTo(pad + bw, pad + bh / 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // resolution: the weighted position the braid settles on
+      var rx = 0, ry = 0;
+      if (total > 0) {
+        voices.forEach(function (v) { rx += v.pos[0] * v.v; ry += v.pos[1] * v.v; });
+        rx /= total; ry /= total;
+      } else { rx = 0.5; ry = 0.5; }
+
+      // dissonance cascade: wide disagreement at high bandwidth fails to
+      // resolve and amplifies instead of settling
+      var spread = 0;
+      if (total > 0) {
+        voices.forEach(function (v) {
+          spread += v.v * Math.hypot(v.pos[0] - rx, v.pos[1] - ry);
+        });
+        spread /= total;
+      }
+      var cascade = convened && spread > 0.315 && total > 210;
+      var jitter = cascade ? Math.sin(now / 45) * 5 : 0;
+
+      var px = function (nx) { return pad + nx * bw; };
+      var py = function (ny) { return pad + ny * bh; };
+
+      // each voice's pull on the resolution
+      voices.forEach(function (v) {
+        if (v.v <= 0) return;
+        ctx.globalAlpha = 0.16 + (v.v / 100) * 0.45;
+        ctx.strokeStyle = v.color;
+        ctx.lineWidth = 0.6 + (v.v / 100) * 2.4;
         ctx.beginPath();
-        ctx.fillStyle = voice.color;
-        ctx.globalAlpha = 0.35 * amp + 0.05;
-        var r = (0.18 + amp * 0.3) * Math.min(w, h);
-        var cx = w / 2 + Math.cos(t + i * 1.7) * (w / 5);
-        var cy = h / 2 + Math.sin(t + i * 1.3) * (h / 5);
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(px(v.pos[0]), py(v.pos[1]));
+        ctx.lineTo(px(rx) + jitter, py(ry));
+        ctx.stroke();
+        ctx.globalAlpha = 1;
       });
-      ctx.globalCompositeOperation = "source-over";
-      ctx.globalAlpha = 1;
+
+      voices.forEach(function (v) {
+        var r = 4 + (v.v / 100) * 13;
+        ctx.globalAlpha = 0.22;
+        ctx.fillStyle = v.color;
+        ctx.beginPath(); ctx.arc(px(v.pos[0]), py(v.pos[1]), r, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.beginPath(); ctx.arc(px(v.pos[0]), py(v.pos[1]), 3, 0, Math.PI * 2); ctx.fill();
+        ctx.font = "9px ui-monospace, monospace";
+        ctx.textAlign = "center";
+        ctx.globalAlpha = 0.8;
+        ctx.fillText(v.blurb, Math.min(w - 62, Math.max(62, px(v.pos[0]))), py(v.pos[1]) + r + 11);
+        ctx.globalAlpha = 1;
+        ctx.textAlign = "left";
+        if (v.v <= FLOOR && convened) {
+          ctx.strokeStyle = v.color;
+          ctx.setLineDash([2, 3]);
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.arc(px(v.pos[0]), py(v.pos[1]), r + 4, 0, Math.PI * 2); ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      });
+
+      // the resolution itself
+      if (total > 0) {
+        var X = px(rx) + jitter, Y = py(ry);
+        ctx.strokeStyle = cascade ? "#ff6b6b" : "#ffffff";
+        ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.arc(X, Y, 9, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(X - 14, Y); ctx.lineTo(X - 11, Y);
+        ctx.moveTo(X + 11, Y); ctx.lineTo(X + 14, Y);
+        ctx.moveTo(X, Y - 14); ctx.lineTo(X, Y - 11);
+        ctx.moveTo(X, Y + 11); ctx.lineTo(X, Y + 14);
+        ctx.stroke();
+        ctx.fillStyle = cascade ? "#ff6b6b" : "#ffffff";
+        ctx.beginPath(); ctx.arc(X, Y, 2.6, 0, Math.PI * 2); ctx.fill();
+      }
+
+      if (convened && total > 0) {
+        var nearest = Infinity, who = "";
+        voices.forEach(function (v) {
+          var d = Math.hypot(v.pos[0] - rx, v.pos[1] - ry);
+          if (d < nearest) { nearest = d; who = v.label; }
+        });
+        var msg;
+        if (cascade) {
+          msg = '<span style="color:#ff8a8a;">Dissonance cascade — disagreement is amplifying instead of resolving.</span>' +
+            "<br>Narrow the bandwidths, or unbraid before it costs you.";
+        } else {
+          msg = "Resolution holds " + nearest.toFixed(2) + " from the nearest member (" + who + ")." +
+            "<br>No one in the braid proposed it. Nobody will remember whose it was.";
+        }
+        if (quotaMsg && now < quotaUntil) msg = quotaMsg + "<br>" + msg;
+        status.innerHTML = msg;
+      } else if (!convened) {
+        /* the unbraid message stays put */
+      }
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
@@ -501,90 +836,315 @@
   // ---------------------------------------------------------------
   // 6565 — Shape a gradient (Tilth)
   // ---------------------------------------------------------------
+  // The previous version let you drop an attractor that dragged particles
+  // straight to it, which is a dispatcher — the exact thing this era
+  // insists does not exist. You now shape the *terrain* only: cost,
+  // friction and reward. Every actor then walks its own downhill path out
+  // of pure self-interest, and if you carve a local minimum that isn't the
+  // shortage, they settle into it and stay — a grief-adjacent basin, which
+  // the widget names and holds you responsible for.
   function tilthGradient(mount) {
-    var c = makeCanvas(mount);
+    var FW = 60, FH = 30;              // cost field resolution
+    var N = 80;                        // actors
+    var BASE = 0.72;
+
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;padding:.5rem;text-align:left;";
+    var bar = controlBar();
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:200px;";
+    canvasHost.style.touchAction = "pan-y";
+    var status = statusLine(3.2);
+    wrap.appendChild(bar);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(status);
+    mount.appendChild(wrap);
+
+    var field = new Float32Array(FW * FH);
+    // The scarcity gradient underneath everything. An engineer may lower
+    // friction on top of it but doesn't get to abolish the fact that the
+    // shortage is short — easing bottoms out just under this, so a dragged
+    // path keeps its downhill and only *lingering* in one spot digs a trap.
+    var bowl = new Float32Array(FW * FH);
+    var EASE_FLOOR = 0.12;
+    var actors = [];
+    var brush = -1;                    // -1 ease (cheaper), +1 friction
+    var arrived = 0;
+    var shortage = { x: 0.86, y: 0.5, r: 0.055 };
+    var dirty = true;
+
+    var off = document.createElement("canvas");
+    off.width = FW; off.height = FH;
+    var octx = off.getContext("2d");
+
+    // Untilled ground: uniformly costly and, crucially, flat. Nothing has
+    // any reason to go anywhere, and nothing does — which is the honest
+    // starting state for an era whose whole claim is that it never issues
+    // an instruction. Underneath sits the scarcity gradient, which easing
+    // uncovers but no engineer gets to invent or abolish.
+    function untilled() {
+      for (var y = 0; y < FH; y++) {
+        for (var x = 0; x < FW; x++) {
+          var nx = x / FW, ny = y / FH;
+          var d = Math.hypot(nx - shortage.x, (ny - shortage.y) * 0.72);
+          bowl[y * FW + x] = 0.16 + Math.min(0.52, d * 0.62);
+          field[y * FW + x] = BASE + Math.sin(nx * 11) * 0.008 + Math.cos(ny * 9) * 0.008;
+        }
+      }
+      dirty = true;
+    }
+    function spawn() {
+      actors = [];
+      for (var i = 0; i < N; i++) {
+        actors.push({
+          x: 0.02 + Math.random() * 0.12,
+          y: 0.08 + Math.random() * 0.84,
+          hx: 0, hy: 0, age: 0, still: 0, done: false, stuck: false
+        });
+      }
+      arrived = 0;
+    }
+    untilled();
+    spawn();
+
+    function sample(nx, ny) {
+      var fx = Math.min(FW - 1, Math.max(0, nx * FW));
+      var fy = Math.min(FH - 1, Math.max(0, ny * FH));
+      var x0 = Math.floor(fx), y0 = Math.floor(fy);
+      var x1 = Math.min(FW - 1, x0 + 1), y1 = Math.min(FH - 1, y0 + 1);
+      var tx = fx - x0, ty = fy - y0;
+      var a = field[y0 * FW + x0], b = field[y0 * FW + x1];
+      var cc = field[y1 * FW + x0], d = field[y1 * FW + x1];
+      return (a * (1 - tx) + b * tx) * (1 - ty) + (cc * (1 - tx) + d * tx) * ty;
+    }
+
+    // True when every way out of here is uphill — i.e. this is a hollow,
+    // not just level ground.
+    function ringedIn(nx, ny) {
+      var here = sample(nx, ny), higher = 0;
+      for (var a = 0; a < 8; a++) {
+        var ang = (a / 8) * Math.PI * 2;
+        if (sample(nx + Math.cos(ang) * 0.05, ny + Math.sin(ang) * 0.05) > here + 0.012) higher++;
+      }
+      return higher >= 6;
+    }
+
+    function paint(nx, ny) {
+      var cx = nx * FW, cy = ny * FH;
+      var rad = 5;
+      for (var y = Math.floor(cy - rad); y <= cy + rad; y++) {
+        for (var x = Math.floor(cx - rad); x <= cx + rad; x++) {
+          if (x < 0 || x >= FW || y < 0 || y >= FH) continue;
+          var d = Math.hypot(x - cx, y - cy);
+          if (d > rad) continue;
+          var fall = (1 - d / rad) * 0.16;
+          var i = y * FW + x;
+          field[i] = brush < 0
+            ? Math.max(bowl[i] - EASE_FLOOR, field[i] - fall)
+            : Math.min(1, field[i] + fall);
+        }
+      }
+      dirty = true;
+    }
+
+    var painting = false, lastPt = null;
+    function toNorm(e) {
+      var rect = canvasHost.getBoundingClientRect();
+      return [(e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height];
+    }
+    // Interpolate between pointer samples, or a fast drag lays a dotted
+    // line of unconnected dents instead of one continuous slope.
+    function strokeTo(n) {
+      if (lastPt) {
+        var dx = n[0] - lastPt[0], dy = n[1] - lastPt[1];
+        var steps = Math.ceil(Math.hypot(dx, dy) / 0.012);
+        for (var s = 1; s < steps; s++) paint(lastPt[0] + dx * (s / steps), lastPt[1] + dy * (s / steps));
+      }
+      paint(n[0], n[1]);
+      lastPt = n;
+    }
+    canvasHost.addEventListener("pointerdown", function (e) {
+      painting = true;
+      lastPt = null;
+      canvasHost.style.touchAction = "none";
+      if (canvasHost.setPointerCapture) canvasHost.setPointerCapture(e.pointerId);
+      strokeTo(toNorm(e));
+    });
+    canvasHost.addEventListener("pointermove", function (e) {
+      if (!painting) return;
+      strokeTo(toNorm(e));
+    });
+    function endPaint(e) {
+      painting = false;
+      lastPt = null;
+      canvasHost.style.touchAction = "pan-y";
+      if (e && canvasHost.releasePointerCapture) {
+        try { canvasHost.releasePointerCapture(e.pointerId); } catch (err) {}
+      }
+    }
+    canvasHost.addEventListener("pointerup", endPaint);
+    canvasHost.addEventListener("pointercancel", endPaint);
+
+    var easeBtn = ctlButton(bar, "Ease", "Lower cost here — make this ground cheaper to cross", function () {
+      brush = -1; setActive(easeBtn, true); setActive(frictionBtn, false);
+    });
+    var frictionBtn = ctlButton(bar, "Friction", "Raise cost here — make this ground expensive", function () {
+      brush = 1; setActive(easeBtn, false); setActive(frictionBtn, true);
+    });
+    spacer(bar);
+    ctlButton(bar, "Flatten", "Undo every slope you laid — the ground goes dead again", function () {
+      untilled();
+    });
+    ctlButton(bar, "Reset", "Level the ground and send everyone back to the surplus", function () {
+      untilled(); spawn();
+    });
+    setActive(easeBtn, true);
+    setActive(frictionBtn, false);
+
+    var c = makeCanvas(canvasHost);
     var ctx = c.ctx;
-    var attractor = null;
-    var basin = null;
-    var particles = [];
-    var dragging = false;
 
-    mount.style.touchAction = "pan-y";
-
-    function reset() {
-      var w = mount.clientWidth, h = mount.clientHeight || 220;
-      basin = { x: w * 0.78, y: h * 0.3, r: 16 };
-      particles = [];
-      for (var i = 0; i < 60; i++) {
-        particles.push({ x: Math.random() * w, y: Math.random() * h, stuck: false });
+    function renderField() {
+      var img = octx.createImageData(FW, FH);
+      for (var i = 0; i < FW * FH; i++) {
+        var v = field[i];
+        // cheap ground reads warm and open; expensive ground reads dark
+        var t = Math.min(1, Math.max(0, (v - 0.02) / 0.98));
+        img.data[i * 4] = Math.round(18 + (1 - t) * 44);
+        img.data[i * 4 + 1] = Math.round(30 + (1 - t) * 150);
+        img.data[i * 4 + 2] = Math.round(28 + (1 - t) * 120);
+        img.data[i * 4 + 3] = Math.round(40 + (1 - t) * 150);
       }
+      octx.putImageData(img, 0, 0);
+      dirty = false;
     }
-    reset();
-
-    function placeAttractor(e) {
-      var rect = mount.getBoundingClientRect();
-      attractor = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-    }
-
-    mount.addEventListener("pointerdown", function (e) {
-      dragging = true;
-      mount.style.touchAction = "none";
-      if (mount.setPointerCapture) mount.setPointerCapture(e.pointerId);
-      placeAttractor(e);
-    });
-    mount.addEventListener("pointermove", function (e) {
-      if (!dragging && e.pointerType !== "mouse") return;
-      if (!dragging && !e.buttons) return;
-      placeAttractor(e);
-    });
-    function clearDrag(e) {
-      dragging = false;
-      mount.style.touchAction = "pan-y";
-      if (e && mount.releasePointerCapture) {
-        try { mount.releasePointerCapture(e.pointerId); } catch (err) {}
-      }
-    }
-    mount.addEventListener("pointerup", clearDrag);
-    mount.addEventListener("pointercancel", clearDrag);
 
     function frame() {
-      var w = mount.clientWidth, h = mount.clientHeight || 220;
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 200;
       ctx.clearRect(0, 0, w, h);
+      if (dirty) renderField();
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(off, 0, 0, w, h);
+
       var accent = cssVar("--accent", "#2dd4bf");
 
-      ctx.beginPath();
-      ctx.arc(basin.x, basin.y, basin.r, 0, Math.PI * 2);
-      ctx.strokeStyle = "rgba(180,60,60,.6)";
-      ctx.setLineDash([3, 3]);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      // slope arrows — the invisible hand, made briefly visible
+      ctx.strokeStyle = "rgba(255,255,255,0.18)";
+      ctx.lineWidth = 0.8;
+      for (var ay = 2; ay < FH; ay += 5) {
+        for (var ax = 2; ax < FW; ax += 6) {
+          var nx = ax / FW, ny = ay / FH;
+          var gx = sample(nx + 0.02, ny) - sample(nx - 0.02, ny);
+          var gy = sample(nx, ny + 0.02) - sample(nx, ny - 0.02);
+          var m = Math.hypot(gx, gy);
+          if (m < 0.004) continue;
+          var ux = -gx / m, uy = -gy / m;
+          var sx = nx * w, sy = ny * h;
+          ctx.beginPath();
+          ctx.moveTo(sx, sy);
+          ctx.lineTo(sx + ux * 7, sy + uy * 7);
+          ctx.stroke();
+        }
+      }
 
-      particles.forEach(function (p) {
-        if (!p.stuck) {
-          var dbx = basin.x - p.x, dby = basin.y - p.y;
-          if (Math.hypot(dbx, dby) < basin.r) { p.stuck = true; }
-          else if (attractor) {
-            var dx = attractor.x - p.x, dy = attractor.y - p.y;
-            var d = Math.hypot(dx, dy) || 1;
-            p.x += (dx / d) * 0.6;
-            p.y += (dy / d) * 0.6;
+      // the surplus, and the shortage it never gets told about
+      ctx.setLineDash([3, 4]);
+      ctx.strokeStyle = "rgba(255,255,255,0.3)";
+      ctx.beginPath(); ctx.moveTo(w * 0.08, 4); ctx.lineTo(w * 0.08, h - 4); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.font = "9px ui-monospace, monospace";
+      ctx.fillStyle = "rgba(255,255,255,0.45)";
+      ctx.fillText("SURPLUS", 4, 12);
+
+      var shx = shortage.x * w, shy = shortage.y * h, shr = shortage.r * w;
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(shx, shy, shr, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 0.15;
+      ctx.fillStyle = accent;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = accent;
+      ctx.fillText("SHORTAGE", shx - 22, shy - shr - 5);
+
+      var stuckCount = 0, moving = 0, milling = 0;
+      var stuckX = 0, stuckY = 0, stuckPts = [];
+
+      actors.forEach(function (p) {
+        if (!p.done) {
+          if (Math.hypot(p.x - shortage.x, p.y - shortage.y) < shortage.r) {
+            p.done = true; arrived++;
           } else {
-            p.x += Math.sin(p.y * 0.05) * 0.3;
-            p.y += Math.cos(p.x * 0.05) * 0.3;
+            // pure self-interest: step down the local cost gradient
+            var gx = sample(p.x + 0.01, p.y) - sample(p.x - 0.01, p.y);
+            var gy = sample(p.x, p.y + 0.01) - sample(p.x, p.y - 0.01);
+            var m = Math.hypot(gx, gy);
+            var sp = 0.0034;
+            if (m > 0.0016) {
+              p.x -= (gx / m) * sp;
+              p.y -= (gy / m) * sp;
+            } else {
+              // no slope worth following: mill about
+              p.x += (Math.random() - 0.5) * 0.004;
+              p.y += (Math.random() - 0.5) * 0.004;
+            }
+            // Caught in a basin is a locally-easy *loop*, not a freeze: keep
+            // them shuffling, or the pile collapses to a single dot.
+            if (p.stuck) {
+              p.x += (Math.random() - 0.5) * 0.007;
+              p.y += (Math.random() - 0.5) * 0.007;
+            }
+            p.x = Math.min(0.995, Math.max(0.005, p.x));
+            p.y = Math.min(0.995, Math.max(0.005, p.y));
+
+            p.age++;
+            if (p.age % 70 === 0) {
+              // Going nowhere is only a *trap* if the ground rings you in.
+              // On flat plain you are merely milling: no slope, no reason.
+              p.settled = Math.hypot(p.x - p.hx, p.y - p.hy) < 0.025;
+              p.stuck = p.settled && ringedIn(p.x, p.y);
+              p.hx = p.x; p.hy = p.y;
+            }
+            if (p.stuck) { stuckCount++; stuckX += p.x; stuckY += p.y; stuckPts.push(p); }
+            else if (p.settled) { milling++; }
+            else { moving++; }
           }
         }
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 2.2, 0, Math.PI * 2);
-        ctx.fillStyle = p.stuck ? "rgba(160,160,160,.7)" : accent;
+        ctx.arc(p.x * w, p.y * h, p.done ? 1.8 : 2.3, 0, Math.PI * 2);
+        ctx.fillStyle = p.done ? "rgba(220,255,240,.85)" : (p.stuck ? "#f0a35e" : accent);
         ctx.fill();
       });
 
-      if (attractor) {
-        ctx.beginPath();
-        ctx.arc(attractor.x, attractor.y, 5, 0, Math.PI * 2);
-        ctx.strokeStyle = accent;
-        ctx.stroke();
+      // A basin only counts as one if the trapped are trapped *together* —
+      // stragglers scattered across the plot are just slow, not caught.
+      var basin = null;
+      if (stuckCount >= 6) {
+        var cxn = stuckX / stuckCount, cyn = stuckY / stuckCount;
+        var near = stuckPts.filter(function (p) { return Math.hypot(p.x - cxn, p.y - cyn) < 0.13; });
+        if (near.length >= 6) basin = { x: cxn, y: cyn, n: near.length };
       }
+      if (basin) {
+        ctx.strokeStyle = "rgba(240,163,94,.75)";
+        ctx.setLineDash([4, 4]);
+        ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.arc(basin.x * w, basin.y * h, 28, 0, Math.PI * 2); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      status.innerHTML =
+        "Arrived <b>" + arrived + "</b> / " + N + " &nbsp;·&nbsp; en route " + moving +
+        " &nbsp;·&nbsp; milling " + milling + " &nbsp;·&nbsp; trapped " + stuckCount +
+        " &nbsp;·&nbsp; <b>dispatched 0</b>." +
+        (basin
+          ? '<br><span style="color:#f0a35e;">Grief-adjacent basin — ' + basin.n +
+            " actors settled somewhere locally easy and systemically useless. Someone is liable for this slope.</span>"
+          : (arrived >= N
+            ? "<br>The whole surplus reached the shortage. You never issued a single instruction."
+            : (milling > N * 0.6 && arrived === 0
+              ? "<br>Level ground. No slope, no reason to move, nothing happening — and no order you could give would change that."
+              : "<br>Nobody here is being told where to go. They are all just going downhill.")));
+
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
