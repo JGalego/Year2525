@@ -346,8 +346,23 @@ body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05r
   max-width: 62ch;
 }
 
+.future-intro-art {
+  width: 100%;
+  aspect-ratio: 3 / 1;
+  margin: 2.25rem 0 1.25rem;
+  color: var(--accent);
+  overflow: hidden;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 5%, transparent), transparent);
+}
+
+.future-intro-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .future-intro-note {
-  margin-top: 1.5rem;
+  margin-top: 1rem;
   font-family: var(--font-display);
   font-size: 1.25rem;
   color: var(--accent2);

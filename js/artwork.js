@@ -363,6 +363,73 @@
   var GENERATORS = {
 
     /* ----------------------------------------------------------------------
+       INTRO — one interface mutating through the timeline's visual grammar.
+       ---------------------------------------------------------------------- */
+    intro: function () {
+      var sc = new Scene("intro");
+
+      sky(sc, [[0, "var(--bg)", 0], [0.5, "var(--bg2)", 0.55], [1, "var(--bg)", 0]]);
+      keyLight(sc, "key", 300, 120, 260, "var(--accent)", 0.16);
+
+      var rail = path("M42 132 C130 132 160 90 228 112 S340 165 410 112 S510 86 562 120", {
+        stroke: "var(--accent)", "stroke-width": 1.4, opacity: 0.42
+      });
+      sc.add(rail);
+
+      // Application window.
+      var app = group({ transform: "translate(30 72)" });
+      app.appendChild(rect(0, 0, 74, 54, { rx: 5, fill: "var(--fg)", "fill-opacity": 0.04, "stroke-width": 1.8 }));
+      app.appendChild(line(0, 13, 74, 13, { opacity: 0.65 }));
+      [8, 15, 22].forEach(function (x) { app.appendChild(circle(x, 7, 1.5, solid("var(--accent)", 0.8))); });
+      app.appendChild(rect(9, 22, 22, 22, { rx: 2, opacity: 0.46 }));
+      app.appendChild(line(39, 25, 64, 25, { opacity: 0.7 }));
+      app.appendChild(line(39, 33, 59, 33, { opacity: 0.4 }));
+      app.appendChild(line(39, 41, 53, 41, { opacity: 0.25 }));
+      sc.add(app);
+
+      // Mandate: a document held up by absurdly formal columns.
+      var law = group({ transform: "translate(145 67)" });
+      law.appendChild(rect(12, 0, 52, 66, { rx: 2, fill: "var(--accent2)", "fill-opacity": 0.05, stroke: "var(--accent2)", opacity: 0.82 }));
+      for (var l = 0; l < 5; l++) law.appendChild(line(22, 14 + l * 9, 54 - (l % 2) * 8, 14 + l * 9, { stroke: "var(--accent2)", opacity: 0.45 }));
+      law.appendChild(line(6, 70, 70, 70, { stroke: "var(--accent2)", "stroke-width": 2 }));
+      law.appendChild(line(16, 66, 16, 76, { stroke: "var(--accent2)" }));
+      law.appendChild(line(60, 66, 60, 76, { stroke: "var(--accent2)" }));
+      sc.add(law);
+
+      // Cultivar branching out of the rail.
+      var plant = group({ transform: "translate(250 52)" });
+      plant.appendChild(path("M34 82 C32 58 40 36 34 10 M34 48 C18 40 12 30 10 20 M35 62 C52 52 58 39 59 27", { "stroke-width": 2 }));
+      [[9,18,-8],[14,31,-11],[58,26,10],[54,42,10],[33,9,0]].forEach(function (leaf) {
+        plant.appendChild(ellipse(leaf[0], leaf[1], 9, 4, { transform: "rotate(" + leaf[2] + " " + leaf[0] + " " + leaf[1] + ")", fill: "var(--accent)", "fill-opacity": 0.12 }));
+      });
+      sc.add(plant);
+
+      // Folding: nested matter configurations, all nearly stable.
+      var fold = group({ transform: "translate(350 66)" });
+      fold.appendChild(polygon("0,48 24,0 72,13 62,66 18,72", { fill: "var(--accent2)", "fill-opacity": 0.08, stroke: "var(--accent2)", "stroke-width": 1.5 }));
+      fold.appendChild(polyline("0,48 38,39 24,0 72,13 38,39 62,66 18,72 38,39", { stroke: "var(--accent2)", opacity: 0.62 }));
+      sc.add(fold);
+
+      // Weather collapsing into resonance and then into an unnamed blur.
+      var weather = group({ transform: "translate(456 94)" });
+      for (var arc = 0; arc < 4; arc++) {
+        weather.appendChild(path("M0 " + (arc * 9) + " C20 " + (arc * 9 - 18) + " 38 " + (arc * 9 + 18) + " 58 " + (arc * 9), {
+          opacity: 0.72 - arc * 0.1, "stroke-width": 1.4
+        }));
+      }
+      sc.add(weather);
+
+      var hum = group({ transform: "translate(555 112)", filter: sc.bloom("hum", 3) });
+      for (var ring = 1; ring <= 4; ring++) hum.appendChild(circle(0, 0, ring * 10, { opacity: 0.5 / ring }));
+      hum.appendChild(circle(0, 0, 3, solid("var(--fg)", 0.9)));
+      sc.add(hum);
+
+      motes(sc, 44, 85, 48, 590, 172, "var(--accent)", 1.4);
+      grade(sc, { scan: 0.025, grain: 0.1, vignette: 0.44 });
+      return sc.svg;
+    },
+
+    /* ----------------------------------------------------------------------
        PRESENT — "Applications."
        A daylight-lit wall of software receding to a vanishing point, seen
        across a glossy desk. Every panel is exhaling telemetry into the
