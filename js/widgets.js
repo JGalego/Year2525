@@ -7,20 +7,24 @@
 
   function makeCanvas(mount) {
     var canvas = document.createElement("canvas");
-    var dpr = window.devicePixelRatio || 1;
+    mount.appendChild(canvas);
+    var ctx = canvas.getContext("2d");
     function resize() {
+      var dpr = window.devicePixelRatio || 1;
       var rect = mount.getBoundingClientRect();
-      canvas.width = Math.max(1, rect.width * dpr);
-      canvas.height = Math.max(1, (rect.height || 220) * dpr);
+      canvas.width = Math.max(1, Math.round(rect.width * dpr));
+      canvas.height = Math.max(1, Math.round((rect.height || 220) * dpr));
       canvas.style.width = "100%";
       canvas.style.height = (rect.height || 220) + "px";
+      // Resizing a canvas clears it and resets its transform, so the
+      // device-pixel-ratio scale must be reapplied every time — mobile
+      // browsers fire "resize" often (address bar show/hide) and without
+      // this, drawing silently shrinks to a 1/dpr fraction of the box.
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
-    mount.appendChild(canvas);
     resize();
     window.addEventListener("resize", resize);
-    var ctx = canvas.getContext("2d");
-    ctx.scale(dpr, dpr);
-    return { canvas: canvas, ctx: ctx, resize: function () { resize(); ctx.setTransform(1,0,0,1,0,0); ctx.scale(dpr, dpr); } };
+    return { canvas: canvas, ctx: ctx, resize: resize };
   }
 
   function cssVar(name, fallback) {

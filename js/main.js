@@ -45,7 +45,10 @@
   }
 
   // Discovery path 1: the year counter itself.
-  yearCounter.addEventListener("click", toggleMode);
+  yearCounter.addEventListener("click", function () {
+    if (presenterActive) return;
+    toggleMode();
+  });
 
   // Discovery path 2: the Konami code, from anywhere on the page.
   var KONAMI = ["ArrowUp","ArrowUp","ArrowDown","ArrowDown","ArrowLeft","ArrowRight","ArrowLeft","ArrowRight","b","a"];
@@ -56,15 +59,16 @@
       konamiProgress++;
       if (konamiProgress === KONAMI.length) {
         konamiProgress = 0;
-        toggleMode();
+        if (!presenterActive) toggleMode();
       }
     } else {
       konamiProgress = (e.key === KONAMI[0]) ? 1 : 0;
     }
   });
 
-  // Escape always returns to the future.
+  // Escape always returns to the future (unless Presenter Mode is handling it).
   window.addEventListener("keydown", function (e) {
+    if (presenterActive) return;
     if (e.key === "Escape" && body.dataset.mode === "past") enterForward();
   });
 
@@ -124,6 +128,138 @@
       });
     }, CENTERLINE);
     pastSections.forEach(function (s) { pastObserver.observe(s); });
+  }
+
+  // ---------------------------------------------------------------
+  // Presenter Mode — a linear walkthrough: the future timeline, then
+  // the past lightcone, one full-screen slide at a time.
+  // ---------------------------------------------------------------
+
+  var presenterToggle = document.getElementById("presenter-toggle");
+  var presenterControls = document.getElementById("presenter-controls");
+  var presenterPrev = document.getElementById("presenter-prev");
+  var presenterNext = document.getElementById("presenter-next");
+  var presenterExit = document.getElementById("presenter-exit");
+  var presenterCounter = document.getElementById("presenter-counter");
+
+  var presenterSlides = [];
+  var presenterIndex = 0;
+  var presenterActive = false;
+  var presenterReturnMode = "forward";
+
+  function buildPresenterSlides() {
+    var forwardSlides = Array.prototype.slice.call(document.querySelectorAll("#forward-timeline > .era"));
+    var pastIntro = document.querySelector("#past-timeline > .past-intro");
+    var pastSlides = Array.prototype.slice.call(document.querySelectorAll("#past-timeline > .past"));
+    return forwardSlides.concat(pastIntro ? [pastIntro] : []).concat(pastSlides);
+  }
+
+  function showPresenterSlide(index) {
+    if (!presenterSlides.length) return;
+    index = Math.max(0, Math.min(index, presenterSlides.length - 1));
+    presenterSlides.forEach(function (s) { s.classList.remove("presenter-current"); });
+    presenterIndex = index;
+    var slide = presenterSlides[presenterIndex];
+    slide.classList.add("presenter-current");
+    slide.scrollTop = 0;
+
+    var era = slide.getAttribute("data-era");
+    var past = slide.getAttribute("data-past");
+    if (era) {
+      body.dataset.era = era;
+      delete body.dataset.past;
+      yearCounter.textContent = YEAR_BY_ERA[era] || yearCounter.textContent;
+      setActiveDot(slide.id);
+    } else if (past) {
+      body.dataset.past = past;
+      delete body.dataset.era;
+      var dateEl = slide.querySelector(".past-date");
+      yearCounter.textContent = dateEl ? dateEl.textContent : yearCounter.textContent;
+    } else {
+      // the Past Lightcone intro slide — no theme of its own, borrow the next one's date
+      delete body.dataset.past;
+      var next = presenterSlides[presenterIndex + 1];
+      var nextDate = next ? next.querySelector(".past-date") : null;
+      yearCounter.textContent = nextDate ? nextDate.textContent : yearCounter.textContent;
+    }
+
+    presenterCounter.textContent = (presenterIndex + 1) + " / " + presenterSlides.length;
+    presenterPrev.disabled = presenterIndex === 0;
+    presenterNext.disabled = presenterIndex === presenterSlides.length - 1;
+  }
+
+  function enterPresenter() {
+    if (presenterActive) return;
+    presenterActive = true;
+    presenterReturnMode = body.dataset.mode === "past" ? "past" : "forward";
+    var currentEra = body.dataset.era;
+    var currentPast = body.dataset.past;
+
+    presenterSlides = buildPresenterSlides();
+    forwardMain.removeAttribute("hidden");
+    pastMain.removeAttribute("hidden");
+    body.classList.add("presenter-mode");
+    presenterControls.hidden = false;
+    presenterExit.hidden = false;
+    presenterToggle.setAttribute("aria-pressed", "true");
+    yearCounter.classList.remove("armed");
+
+    var startIndex = 0;
+    presenterSlides.forEach(function (s, i) {
+      if (presenterReturnMode === "forward" && s.getAttribute("data-era") === currentEra) startIndex = i;
+      if (presenterReturnMode === "past" && s.getAttribute("data-past") === currentPast) startIndex = i;
+    });
+    showPresenterSlide(startIndex);
+  }
+
+  function exitPresenter() {
+    if (!presenterActive) return;
+    presenterActive = false;
+    body.classList.remove("presenter-mode");
+    presenterControls.hidden = true;
+    presenterExit.hidden = true;
+    presenterToggle.setAttribute("aria-pressed", "false");
+
+    var slide = presenterSlides[presenterIndex];
+    presenterSlides.forEach(function (s) { s.classList.remove("presenter-current"); });
+
+    var goingPast = slide && (slide.classList.contains("past") || slide.classList.contains("past-intro"));
+    if (goingPast) {
+      body.dataset.mode = "past";
+      forwardMain.setAttribute("hidden", "");
+      pastMain.removeAttribute("hidden");
+    } else {
+      body.dataset.mode = "forward";
+      pastMain.setAttribute("hidden", "");
+      forwardMain.removeAttribute("hidden");
+    }
+    if (slide) {
+      requestAnimationFrame(function () {
+        slide.scrollIntoView({ behavior: "instant" in window ? "instant" : "auto" });
+      });
+    }
+  }
+
+  if (presenterToggle) {
+    presenterToggle.addEventListener("click", function () {
+      if (presenterActive) exitPresenter(); else enterPresenter();
+    });
+    presenterPrev.addEventListener("click", function () { showPresenterSlide(presenterIndex - 1); });
+    presenterNext.addEventListener("click", function () { showPresenterSlide(presenterIndex + 1); });
+    presenterExit.addEventListener("click", exitPresenter);
+
+    window.addEventListener("keydown", function (e) {
+      if (!presenterActive) return;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " " || e.key === "PageDown") {
+        e.preventDefault();
+        showPresenterSlide(presenterIndex + 1);
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp" || e.key === "PageUp") {
+        e.preventDefault();
+        showPresenterSlide(presenterIndex - 1);
+      } else if (e.key === "Escape") {
+        exitPresenter();
+      }
+    });
   }
 
 })();

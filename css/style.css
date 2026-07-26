@@ -95,6 +95,23 @@ code { font-family: var(--font-mono); background: rgba(255,255,255,0.08); paddin
 .year-counter.armed { animation: pulse-year 1.4s ease-in-out infinite; }
 @keyframes pulse-year { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 
+.header-btn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 999px;
+  width: 30px; height: 30px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: color .3s ease, border-color .3s ease;
+  flex: none;
+}
+.header-btn:hover, .header-btn:focus-visible, .header-btn[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.header-btn-icon { width: 16px; height: 16px; flex: none; }
+
 .dotnav {
   margin-left: auto;
   display: none;
@@ -146,6 +163,101 @@ code { font-family: var(--font-mono); background: rgba(255,255,255,0.08); paddin
   .dotnav { display: flex; }
 }
 body[data-mode="past"] .dotnav { display: none; }
+
+/* ---------------------------- presenter mode ---------------------------- */
+
+.presenter-controls {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: .4rem .5rem;
+  box-shadow: 0 6px 24px rgba(0,0,0,.35);
+  font-family: var(--font-mono);
+  font-size: .8rem;
+  transition: var(--transition-era);
+}
+.presenter-controls button {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 50%;
+  width: 30px; height: 30px;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .2s ease, border-color .2s ease;
+}
+.presenter-controls button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.presenter-controls button:disabled { opacity: .35; cursor: default; }
+.presenter-counter { color: var(--muted); min-width: 4.5em; text-align: center; user-select: none; }
+
+.presenter-exit {
+  position: fixed;
+  top: 1rem; right: 1rem;
+  z-index: 200;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .2s ease, border-color .2s ease;
+}
+.presenter-exit:hover { color: var(--accent); border-color: var(--accent); }
+
+body.presenter-mode { overflow: hidden; }
+body.presenter-mode .site-footer { display: none; }
+body.presenter-mode .dotnav { display: none !important; }
+body.presenter-mode .year-counter { cursor: default; }
+
+body.presenter-mode #forward-timeline,
+body.presenter-mode #past-timeline {
+  display: block !important;
+}
+body.presenter-mode .era,
+body.presenter-mode .past,
+body.presenter-mode .past-intro {
+  display: none !important;
+}
+body.presenter-mode .era.presenter-current,
+body.presenter-mode .past.presenter-current,
+body.presenter-mode .past-intro.presenter-current {
+  display: flex !important;
+  position: fixed;
+  inset: 0;
+  z-index: 5;
+  overflow-y: auto;
+  border-bottom: none;
+  /* Normally a section just sits on the body's background in the flow.
+     Once both <main>s collapse to zero height behind a fixed slide, the
+     footer moves up to y=0 and shows through the slide's transparent
+     padding — so the current slide needs its own opaque background. */
+  background: var(--bg);
+}
+/* .era is a row-direction flex container, so its vertical axis (the one
+   that overflows on tall slides) is the cross axis, controlled by
+   align-items. Centered cross-axis content taller than the container
+   overflows equally above and below, making the true top unreachable
+   via scrollTop=0 — so top-align it while presenting. */
+body.presenter-mode .era.presenter-current { align-items: flex-start !important; }
+/* .past and .past-intro are column-direction flex containers, so their
+   vertical axis is the main axis, controlled by justify-content — the
+   same overflow problem, fixed the same way, without touching
+   align-items (which centers them horizontally and must stay). */
+body.presenter-mode .past.presenter-current,
+body.presenter-mode .past-intro.presenter-current { justify-content: flex-start !important; }
 
 /* ---------------------------- era layout ---------------------------- */
 
