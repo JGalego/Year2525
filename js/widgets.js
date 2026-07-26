@@ -3058,6 +3058,375 @@
   }
 
   // ---------------------------------------------------------------
+  // Past — Astronomical tables
+  // ---------------------------------------------------------------
+  // The table is the program and you are the processor. It gives the
+  // Moon's elongation from the Sun every two days; the festival falls at
+  // new moon, which is almost never on a tabulated row. So you bracket it,
+  // take the difference, and interpolate in sixtieths — and the moon disc
+  // tells you plainly whether the province eats on the right morning.
+  function astronomicalTables(mount) {
+    var STEP = 2, ROWS = 9;
+    var SYNODIC = 29.530588, ANOM = 27.554549;
+    // Elongation of the Moon from the Sun. The sine term is the elliptical
+    // inequality — the reason linear interpolation can only ever get close.
+    function elong(t) {
+      var e = 360 * (t / SYNODIC) + 6.3 * Math.sin(2 * Math.PI * (t / ANOM)) - 172;
+      return ((e % 360) + 360) % 360;
+    }
+    // The instant of new moon: the crossing of 360 -> 0, found by bisection.
+    var trueNew = (function () {
+      var lo = 0, hi = STEP * (ROWS - 1);
+      for (var i = 0; i < 80; i++) {
+        var mid = (lo + hi) / 2;
+        if (elong(mid) > 180) lo = mid; else hi = mid;
+      }
+      return (lo + hi) / 2;
+    })();
+
+    var pick = -1, parts = 0;
+
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;padding:.4rem;text-align:left;";
+    var bar = controlBar();
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:232px;";
+    canvasHost.style.touchAction = "pan-y";
+    var slider = document.createElement("label");
+    slider.style.cssText = "display:flex;align-items:center;gap:.6rem;font-family:var(--font-mono);font-size:.75rem;margin-top:.5rem;";
+    slider.innerHTML = '<span style="white-space:nowrap;">parts of sixty</span>';
+    var range = document.createElement("input");
+    range.type = "range"; range.min = 0; range.max = 60; range.value = 0;
+    range.style.flex = "1";
+    range.disabled = true;
+    slider.appendChild(range);
+    var partsOut = document.createElement("b");
+    partsOut.style.cssText = "min-width:2.2em;text-align:right;";
+    partsOut.textContent = "0";
+    slider.appendChild(partsOut);
+    var status = statusLine(3.4);
+    wrap.appendChild(bar);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(slider);
+    wrap.appendChild(status);
+    mount.appendChild(wrap);
+
+    function deg60(d) {
+      var a = Math.floor(d), m = Math.round((d - a) * 60);
+      if (m === 60) { a++; m = 0; }
+      return a + "° " + String(m).padStart(2, "0") + "′";
+    }
+    function predicted() { return pick < 0 ? null : pick * STEP + (parts / 60) * STEP; }
+    function refresh() {
+      partsOut.textContent = String(parts);
+      range.disabled = pick < 0;
+      if (pick < 0) {
+        status.innerHTML = "The festival falls at new moon — elongation zero. Find the two rows the crossing " +
+          "falls between and tap the <b>upper</b> of them, then interpolate in sixtieths.";
+        return;
+      }
+      var p = predicted();
+      var errH = (p - trueNew) * 24;
+      var brackets = elong(pick * STEP) > 180 && elong((pick + 1) * STEP) < 180;
+      status.innerHTML = "Day " + pick * STEP + " → " + (pick + 1) * STEP + ", interpolating " + parts + "/60." +
+        "<br>Your new moon: <b>day " + p.toFixed(3) + "</b> &nbsp;·&nbsp; true: day " + trueNew.toFixed(3) +
+        " &nbsp;·&nbsp; out by <b>" + (errH >= 0 ? "+" : "") + errH.toFixed(1) + " hours</b>." +
+        (brackets ? "" : '<br><span style="color:#c0392b;">These two rows don\'t bracket the crossing at all. The table is right; the reading is wrong.</span>');
+    }
+
+    ctlButton(bar, "Work it out for me", "Take the difference and divide, as the canons instruct", function () {
+      for (var r = 0; r < ROWS - 1; r++) {
+        if (elong(r * STEP) > 180 && elong((r + 1) * STEP) < 180) {
+          pick = r;
+          var lo = elong(r * STEP) - 360, hi = elong((r + 1) * STEP);
+          parts = Math.round((-lo / (hi - lo)) * 60);
+          range.value = parts;
+          break;
+        }
+      }
+      refresh();
+    });
+    spacer(bar);
+    ctlButton(bar, "Reset", "Close the tables and start again", function () {
+      pick = -1; parts = 0; range.value = 0; refresh();
+    });
+    range.addEventListener("input", function () { parts = +range.value; refresh(); });
+
+    function layout() {
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 232;
+      var tw = Math.min(w * 0.62, 340);
+      return { w: w, h: h, tx: 6, ty: 22, tw: tw, rowH: (h - 34) / ROWS, mx: tw + (w - tw) / 2, my: h * 0.46 };
+    }
+    canvasHost.addEventListener("pointerdown", function (e) {
+      var L = layout();
+      var r = canvasHost.getBoundingClientRect();
+      var px = e.clientX - r.left, py = e.clientY - r.top;
+      if (px > L.tx + L.tw) return;
+      var row = Math.floor((py - L.ty) / L.rowH);
+      if (row < 0 || row >= ROWS - 1) return;
+      pick = row; parts = 0; range.value = 0;
+      refresh();
+    });
+
+    var cv = makeCanvas(canvasHost);
+    var ctx = cv.ctx;
+    function frame() {
+      var L = layout();
+      ctx.clearRect(0, 0, L.w, L.h);
+      var muted = cssVar("--muted", "#7a83a8");
+      var accent = cssVar("--accent", "#f2d675");
+
+      ctx.font = "10px ui-monospace, monospace";
+      ctx.fillStyle = muted;
+      ctx.fillText("DAY", L.tx + 4, L.ty - 7);
+      ctx.fillText("ELONGATION ☾ FROM ☉", L.tx + 60, L.ty - 7);
+      for (var r = 0; r < ROWS; r++) {
+        var y = L.ty + r * L.rowH;
+        var inPair = pick >= 0 && (r === pick || r === pick + 1);
+        if (inPair) {
+          ctx.fillStyle = "rgba(242,214,117,.16)";
+          ctx.fillRect(L.tx, y, L.tw, L.rowH);
+        }
+        ctx.strokeStyle = "rgba(255,255,255,.07)";
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(L.tx, y + L.rowH); ctx.lineTo(L.tx + L.tw, y + L.rowH); ctx.stroke();
+        ctx.fillStyle = inPair ? accent : muted;
+        ctx.font = (inPair ? "bold " : "") + "11px ui-monospace, monospace";
+        ctx.fillText(String(r * STEP).padStart(2, " "), L.tx + 6, y + L.rowH * 0.68);
+        ctx.fillText(deg60(elong(r * STEP)), L.tx + 60, y + L.rowH * 0.68);
+      }
+      ctx.strokeStyle = "rgba(255,255,255,.14)";
+      ctx.strokeRect(L.tx + 0.5, L.ty + 0.5, L.tw - 1, ROWS * L.rowH);
+
+      // The moon at the instant you predicted: the whole answer, visible.
+      var p = predicted();
+      var mr = Math.min(46, L.w * 0.1);
+      ctx.fillStyle = "rgba(255,255,255,.05)";
+      ctx.beginPath(); ctx.arc(L.mx, L.my, mr + 12, 0, Math.PI * 2); ctx.fill();
+      // dark limb
+      ctx.fillStyle = "#15182c";
+      ctx.beginPath(); ctx.arc(L.mx, L.my, mr, 0, Math.PI * 2); ctx.fill();
+      if (p !== null) {
+        // illuminated fraction from the elongation at that instant
+        var el = elong(p);
+        var signed = el > 180 ? el - 360 : el;
+        var lit = (1 - Math.cos(signed * Math.PI / 180)) / 2;
+        ctx.save();
+        ctx.beginPath(); ctx.arc(L.mx, L.my, mr, 0, Math.PI * 2); ctx.clip();
+        ctx.fillStyle = "#f6f0d8";
+        var k = Math.abs(Math.cos(signed * Math.PI / 180));
+        ctx.beginPath();
+        ctx.ellipse(L.mx + (signed > 0 ? 1 : -1) * mr * k * 0.0, L.my, mr, mr, 0,
+          signed > 0 ? -Math.PI / 2 : Math.PI / 2, signed > 0 ? Math.PI / 2 : (3 * Math.PI) / 2);
+        ctx.ellipse(L.mx, L.my, mr * k, mr, 0,
+          signed > 0 ? Math.PI / 2 : (3 * Math.PI) / 2, signed > 0 ? -Math.PI / 2 : Math.PI / 2,
+          (signed > 0) === (Math.cos(signed * Math.PI / 180) > 0));
+        ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = muted;
+        ctx.font = "10px ui-monospace, monospace";
+        ctx.textAlign = "center";
+        ctx.fillText((lit * 100).toFixed(1) + "% lit", L.mx, L.my + mr + 18);
+        ctx.fillText(lit < 0.002 ? "new moon — the date holds" : "not yet dark — the festival moves", L.mx, L.my + mr + 32);
+        ctx.textAlign = "left";
+      }
+      ctx.strokeStyle = "rgba(255,255,255,.18)";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(L.mx, L.my, mr, 0, Math.PI * 2); ctx.stroke();
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    refresh();
+  }
+
+  // ---------------------------------------------------------------
+  // Past — Memory palace
+  // ---------------------------------------------------------------
+  // The method of loci: a route you already know by heart, walked in a
+  // fixed order, with one vivid image left at each station. The path is
+  // not decoration — it is the index, and it is the only reason the
+  // sequence comes back in order. Storage on unmodified wetware.
+  function memoryPalace(mount) {
+    var LOCI = [
+      { n: "the porch", x: 0.10, y: 0.78 },
+      { n: "the atrium", x: 0.26, y: 0.48 },
+      { n: "the hearth", x: 0.44, y: 0.72 },
+      { n: "the stair", x: 0.56, y: 0.32 },
+      { n: "the long window", x: 0.70, y: 0.62 },
+      { n: "the store room", x: 0.86, y: 0.36 }
+    ];
+    var ITEMS = ["salt", "a red horse", "seven lamps", "a broken oar", "the west gate", "a wolf"];
+    var placed = new Array(LOCI.length).fill(null);
+    var held = -1, phase = "furnish", walked = [];
+
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;padding:.4rem;text-align:left;";
+    var bar = controlBar();
+    var chips = document.createElement("div");
+    chips.style.cssText = "display:flex;flex-wrap:wrap;gap:.35rem;margin-bottom:.5rem;";
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:210px;";
+    canvasHost.style.touchAction = "pan-y";
+    var status = statusLine(3.2);
+    wrap.appendChild(bar);
+    wrap.appendChild(chips);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(status);
+    mount.appendChild(wrap);
+
+    var chipEls = [];
+    ITEMS.forEach(function (label, i) {
+      var b = document.createElement("button");
+      b.textContent = label;
+      b.style.cssText = BTN_CSS + "font-size:.75rem;padding:.25rem .55rem;";
+      b.addEventListener("click", function () {
+        if (phase !== "furnish") return;
+        held = held === i ? -1 : i;
+        paintChips();
+        refresh();
+      });
+      chips.appendChild(b);
+      chipEls.push(b);
+    });
+    function paintChips() {
+      chipEls.forEach(function (b, i) {
+        var used = placed.indexOf(i) >= 0;
+        b.style.opacity = used ? ".35" : "1";
+        b.style.textDecoration = used ? "line-through" : "none";
+        setActive(b, held === i);
+      });
+    }
+    function refresh() {
+      if (phase === "furnish") {
+        var left = ITEMS.length - placed.filter(function (p) { return p !== null; }).length;
+        status.innerHTML = held >= 0
+          ? "Holding <b>" + ITEMS[held] + "</b>. Now put it somewhere in the house you could not possibly forget."
+          : (left ? left + " image(s) still in your hands. Pick one, then a station on the route."
+                  : "Every station furnished. Now walk the route and see what comes back.");
+      } else {
+        var order = walked.map(function (i) { return placed[i] === null ? "—" : ITEMS[placed[i]]; });
+        var inOrder = walked.every(function (v, i) { return v === i; });
+        status.innerHTML = "Walked " + walked.length + " of " + LOCI.length + " stations.<br>" +
+          (order.length ? "Recalled: <b>" + order.join(" · ") + "</b>" : "Click the stations, in the order you would walk them.") +
+          (walked.length === LOCI.length
+            ? (inOrder
+              ? '<br><span style="color:#2e7d32;">In order, with nothing written down anywhere.</span>'
+              : '<br><span style="color:#c9a24b;">All of them — but out of route order, which is the part the palace was doing for you.</span>')
+            : "");
+      }
+    }
+
+    var walkBtn = ctlButton(bar, "Walk the route", "Hide the images and recall them by walking", function () {
+      if (phase === "furnish") {
+        phase = "recall"; walked = [];
+        walkBtn.textContent = "Furnish again";
+      } else {
+        phase = "furnish"; walked = []; held = -1;
+        walkBtn.textContent = "Walk the route";
+      }
+      paintChips();
+      refresh();
+    });
+    spacer(bar);
+    ctlButton(bar, "Reset", "Empty the house", function () {
+      placed = new Array(LOCI.length).fill(null);
+      held = -1; phase = "furnish"; walked = [];
+      walkBtn.textContent = "Walk the route";
+      paintChips();
+      refresh();
+    });
+
+    function layout() {
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 210;
+      return { w: w, h: h, px: function (nx) { return 20 + nx * (w - 40); }, py: function (ny) { return 18 + ny * (h - 46); } };
+    }
+    canvasHost.addEventListener("pointerdown", function (e) {
+      var L = layout();
+      var r = canvasHost.getBoundingClientRect();
+      var mx = e.clientX - r.left, my = e.clientY - r.top;
+      var hit = -1;
+      LOCI.forEach(function (lo, i) {
+        if (Math.hypot(mx - L.px(lo.x), my - L.py(lo.y)) < 24) hit = i;
+      });
+      if (hit < 0) return;
+      if (phase === "furnish") {
+        if (held < 0) return;
+        var prev = placed.indexOf(held);
+        if (prev >= 0) placed[prev] = null;
+        placed[hit] = held;
+        held = -1;
+        paintChips();
+      } else if (walked.indexOf(hit) < 0) {
+        walked.push(hit);
+      }
+      refresh();
+    });
+
+    var cv = makeCanvas(canvasHost);
+    var ctx = cv.ctx;
+    function frame() {
+      var L = layout();
+      ctx.clearRect(0, 0, L.w, L.h);
+      var accent = cssVar("--accent", "#e6b366");
+      var muted = cssVar("--muted", "#b89870");
+
+      // the house: a plan you are supposed to already know
+      ctx.strokeStyle = "rgba(255,255,255,.14)";
+      ctx.lineWidth = 1.4;
+      ctx.strokeRect(14.5, 12.5, L.w - 29, L.h - 36);
+      ctx.strokeStyle = "rgba(255,255,255,.09)";
+      ctx.lineWidth = 1;
+      [0.34, 0.62].forEach(function (fx) {
+        ctx.beginPath(); ctx.moveTo(14 + fx * (L.w - 28), 13); ctx.lineTo(14 + fx * (L.w - 28), L.h - 24); ctx.stroke();
+      });
+      ctx.beginPath(); ctx.moveTo(14, 12 + (L.h - 36) * 0.52); ctx.lineTo(14 + (L.w - 28) * 0.34, 12 + (L.h - 36) * 0.52); ctx.stroke();
+
+      // the route, which is the index
+      ctx.strokeStyle = "rgba(230,179,102,.45)";
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      LOCI.forEach(function (lo, i) {
+        var x = L.px(lo.x), y = L.py(lo.y);
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.font = "10px ui-monospace, monospace";
+      ctx.textAlign = "center";
+      LOCI.forEach(function (lo, i) {
+        var x = L.px(lo.x), y = L.py(lo.y);
+        var revealed = phase === "furnish" || walked.indexOf(i) >= 0;
+        var isNext = phase === "recall" && walked.length === i;
+        ctx.beginPath();
+        ctx.arc(x, y, 13, 0, Math.PI * 2);
+        ctx.fillStyle = placed[i] !== null && revealed ? "rgba(230,179,102,.22)" : "rgba(255,255,255,.05)";
+        ctx.fill();
+        ctx.strokeStyle = isNext ? accent : "rgba(255,255,255,.22)";
+        ctx.lineWidth = isNext ? 1.8 : 1;
+        ctx.stroke();
+        ctx.fillStyle = muted;
+        ctx.fillText(String(i + 1), x, y + 3.5);
+        ctx.fillStyle = "rgba(255,255,255,.4)";
+        ctx.font = "9px ui-monospace, monospace";
+        ctx.fillText(lo.n, x, y + 26);
+        if (placed[i] !== null && revealed) {
+          ctx.fillStyle = accent;
+          ctx.font = "bold 10px ui-monospace, monospace";
+          ctx.fillText(ITEMS[placed[i]], x, y - 19);
+        }
+        ctx.font = "10px ui-monospace, monospace";
+      });
+      ctx.textAlign = "left";
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+    paintChips();
+    refresh();
+  }
+
+  // ---------------------------------------------------------------
   // Registry + lazy init
   // ---------------------------------------------------------------
   var REGISTRY = {
@@ -3079,7 +3448,9 @@
     "jacquard-loom": jacquardLoom,
     "tally-stick": tallyStick,
     "mechanical-carry": mechanicalCarry,
-    "paper-tape": paperTape
+    "paper-tape": paperTape,
+    "astronomical-tables": astronomicalTables,
+    "memory-palace": memoryPalace
   };
 
   function init() {
