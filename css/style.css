@@ -167,16 +167,13 @@ body[data-mode="past"] .dotnav { display: none; }
   font-size: .75rem;
   color: var(--accent);
   margin-bottom: .75rem;
-  display: flex;
-  align-items: center;
-  gap: .55em;
 }
 
 .era-icon {
-  width: 1.15rem;
-  height: 1.15rem;
-  flex: none;
-  flex-shrink: 0;
+  display: block;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-bottom: 1rem;
   color: var(--accent);
 }
 
@@ -358,9 +355,9 @@ body[data-mode="past"] { --transition-era: background-color .5s ease, color .5s 
   border-bottom: 1px solid var(--border);
   transition: var(--transition-era);
 }
-.past h2 { font-size: clamp(1.8rem, 5vw, 2.6rem); margin-bottom: .3em; display: flex; align-items: center; justify-content: center; gap: .35em; }
-.past-icon { width: 1.5rem; height: 1.5rem; flex: none; flex-shrink: 0; color: var(--accent); }
-.past-date { display: block; font-family: var(--font-mono); font-size: .75rem; color: var(--muted); font-weight: 400; letter-spacing: .05em; margin-top: .3em; }
+.past h2 { font-size: clamp(1.8rem, 5vw, 2.6rem); margin-bottom: .3em; }
+.past-icon { display: block; width: 2.25rem; height: 2.25rem; margin: 0 auto 1rem; color: var(--accent); }
+.past-date { display: block; font-family: var(--font-mono); font-size: .75rem; color: var(--muted); font-weight: 400; letter-spacing: .05em; margin-top: -.1rem; margin-bottom: 1.4rem; }
 .past p { max-width: 56ch; }
 .past-caption { font-size: .85rem; color: var(--muted); font-style: italic; }
 
