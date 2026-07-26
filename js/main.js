@@ -154,6 +154,20 @@
   });
 
   if (logo) {
+    logo.addEventListener("click", function (e) {
+      e.preventDefault();
+      if (presenterActive) exitPresenter();
+      if (body.dataset.mode === "past") enterForward();
+      else {
+        scrollToTopInstant();
+        body.dataset.era = "present";
+        yearCounter.textContent = YEAR_BY_ERA.present;
+        setActiveDot("present");
+      }
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
+    });
     logo.addEventListener("dblclick", function (e) {
       e.preventDefault();
       showSecret("Museum marginalia unlocked. Try typing basilisk, skynet, singularity, paperclip, am, or ted.");
