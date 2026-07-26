@@ -255,18 +255,57 @@ body.presenter-mode .past-intro.presenter-current {
      padding — so the current slide needs its own opaque background. */
   background: var(--bg);
 }
-/* .era is a row-direction flex container, so its vertical axis (the one
-   that overflows on tall slides) is the cross axis, controlled by
-   align-items. Centered cross-axis content taller than the container
-   overflows equally above and below, making the true top unreachable
-   via scrollTop=0 — so top-align it while presenting. */
-body.presenter-mode .era.presenter-current { align-items: flex-start !important; }
-/* .past and .past-intro are column-direction flex containers, so their
-   vertical axis is the main axis, controlled by justify-content — the
-   same overflow problem, fixed the same way, without touching
-   align-items (which centers them horizontally and must stay). */
-body.presenter-mode .past.presenter-current,
-body.presenter-mode .past-intro.presenter-current { justify-content: flex-start !important; }
+/* Centered content taller than the viewport overflows equally above and
+   below, making the true top unreachable via scrollTop=0. Slides are
+   short enough now (one subsection or card at a time) that this is rare,
+   so default to centered — JS measures each slide after it's shown and
+   adds .presenter-overflow only when it genuinely doesn't fit, rather
+   than top-aligning everything unconditionally. .era is a row-direction
+   flex container (its vertical axis is the cross axis: align-items);
+   .past/.past-intro are column-direction (vertical axis is the main
+   axis: justify-content) — same fix, different property per axis. */
+body.presenter-mode .era.presenter-current.presenter-overflow { align-items: flex-start !important; }
+body.presenter-mode .past.presenter-current.presenter-overflow,
+body.presenter-mode .past-intro.presenter-current.presenter-overflow { justify-content: flex-start !important; }
+
+/* A single reusable slide for the per-subsection breakdown of a forward
+   era (title / Civilisation / Successor / Technology / Example /
+   Intelligence / Day-in-life / Creation / Historical Importance) — its
+   content is swapped in per slide rather than cloning 90 static sections. */
+#presenter-virtual-slide { text-align: left; }
+.presenter-sub { max-width: var(--maxw); margin: 0 auto; width: 100%; }
+.presenter-sub-title { text-align: left; }
+.presenter-sub-title .era-icon { width: 3rem; height: 3rem; margin-bottom: 1.5rem; }
+.presenter-sub-heading {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5.5vw, 3.4rem);
+  color: var(--accent2);
+  margin-bottom: .7em;
+}
+.presenter-sub-body {
+  font-size: clamp(1.15rem, 2.3vw, 1.55rem);
+  line-height: 1.65;
+  max-width: 38em;
+}
+.presenter-sub-card { max-width: 42em; margin: 0 auto; }
+.presenter-sub-card .callout,
+.presenter-sub-card .example-card,
+.presenter-sub-card .historical-note {
+  font-size: 1.1rem;
+  margin-bottom: 0;
+}
+.presenter-sub-card .day-in-life { border-top: none; padding-top: 0; margin-top: 0; font-size: 1.1rem; }
+
+body.presenter-mode .era.presenter-current.presenter-widget-only > .era-inner > *:not(.interactive-block):not(.changelog) {
+  display: none !important;
+}
+body.presenter-mode .era.presenter-current.presenter-widget-only > .era-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+}
+body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05rem; }
 
 /* ---------------------------- era layout ---------------------------- */
 

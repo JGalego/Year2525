@@ -196,7 +196,12 @@
 
   // ---------------------------------------------------------------
   // Presenter Mode — a linear walkthrough: the future timeline, then
-  // the past lightcone, one full-screen slide at a time.
+  // the past lightcone, one full-screen slide at a time. Each forward
+  // era is broken into its own title slide plus one slide per
+  // subsection (Civilisation/Technology/Intelligence/Creation,
+  // interspersed with Successor/Example/Day-in-life/Historical
+  // Importance) and a closing slide for its interactive widget. Past
+  // Lightcone stops are left as single slides.
   // ---------------------------------------------------------------
 
   var presenterToggle = document.getElementById("presenter-toggle");
@@ -205,45 +210,163 @@
   var presenterNext = document.getElementById("presenter-next");
   var presenterExit = document.getElementById("presenter-exit");
   var presenterCounter = document.getElementById("presenter-counter");
+  var presenterVirtualSlide = document.getElementById("presenter-virtual-slide");
 
   var presenterSlides = [];
   var presenterIndex = 0;
   var presenterActive = false;
   var presenterReturnMode = "forward";
 
+  function subNode(headingHTML, bodyHTML) {
+    var d = document.createElement("div");
+    d.className = "presenter-sub";
+    d.innerHTML = '<h2 class="presenter-sub-heading">' + headingHTML + '</h2><div class="presenter-sub-body">' + bodyHTML + '</div>';
+    return d;
+  }
+  function cardNode(sourceEl, excludeSelector) {
+    var d = document.createElement("div");
+    d.className = "presenter-sub presenter-sub-card";
+    if (sourceEl) {
+      var clone = sourceEl.cloneNode(true);
+      var toRemove = excludeSelector ? clone.querySelector(excludeSelector) : null;
+      if (toRemove && toRemove.parentNode) toRemove.parentNode.removeChild(toRemove);
+      d.appendChild(clone);
+    }
+    return d;
+  }
+  function titleNode(era) {
+    var d = document.createElement("div");
+    d.className = "presenter-sub presenter-sub-title";
+    ["era-icon", "era-kicker", "era-title", "era-tagline"].forEach(function (cls) {
+      var src = era.querySelector("." + cls);
+      if (src) d.appendChild(src.cloneNode(true));
+    });
+    return d;
+  }
+
+  // Splits one era section into its per-subsection slide nodes, or
+  // returns null for a section with no era-grid (the Museum closer),
+  // which stays a single, unsplit slide.
+  function buildEraSubslides(era) {
+    var grid = era.querySelector(".era-grid");
+    if (!grid) return null;
+    var cols = grid.querySelectorAll(".era-col");
+    var leftCol = cols[0], rightCol = cols[1];
+    var subs = (leftCol ? Array.prototype.slice.call(leftCol.querySelectorAll("h3")) : []).map(function (h3) {
+      var p = h3.nextElementSibling;
+      return { label: h3.textContent, bodyHTML: (p && p.tagName === "P") ? p.innerHTML : "" };
+    });
+    var callout = rightCol ? rightCol.querySelector(".callout") : null;
+    var exampleCard = rightCol ? rightCol.querySelector(".example-card") : null;
+    var historicalNote = rightCol ? rightCol.querySelector(".historical-note") : null;
+    var dayInLife = exampleCard ? exampleCard.querySelector(".day-in-life") : null;
+
+    var nodes = [titleNode(era)];
+    if (subs[0]) nodes.push(subNode(subs[0].label, subs[0].bodyHTML));
+    if (callout) nodes.push(cardNode(callout));
+    if (subs[1]) nodes.push(subNode(subs[1].label, subs[1].bodyHTML));
+    if (exampleCard) nodes.push(cardNode(exampleCard, ".day-in-life"));
+    if (subs[2]) nodes.push(subNode(subs[2].label, subs[2].bodyHTML));
+    if (dayInLife) nodes.push(cardNode(dayInLife));
+    if (subs[3]) nodes.push(subNode(subs[3].label, subs[3].bodyHTML));
+    if (historicalNote) nodes.push(cardNode(historicalNote));
+    return nodes;
+  }
+
+  function makeVirtualEntry(node, eraKey, sectionId) {
+    return {
+      eraKey: eraKey, pastKey: null, sectionId: sectionId, isPastLike: false,
+      fitEl: presenterVirtualSlide,
+      show: function () {
+        presenterVirtualSlide.innerHTML = "";
+        presenterVirtualSlide.appendChild(node);
+        presenterVirtualSlide.hidden = false;
+        presenterVirtualSlide.classList.add("presenter-current");
+      },
+      hide: function () {
+        presenterVirtualSlide.classList.remove("presenter-current", "presenter-overflow");
+        presenterVirtualSlide.hidden = true;
+      },
+      scrollTarget: function () { return document.getElementById(sectionId); }
+    };
+  }
+
+  function makeRealEntry(el, opts) {
+    opts = opts || {};
+    var isPast = el.classList.contains("past") || el.classList.contains("past-intro");
+    return {
+      eraKey: !isPast ? el.getAttribute("data-era") : null,
+      pastKey: el.getAttribute("data-past"),
+      sectionId: el.id || null,
+      isPastLike: isPast,
+      fitEl: el,
+      show: function () {
+        el.classList.add("presenter-current");
+        if (opts.widgetOnly) el.classList.add("presenter-widget-only");
+      },
+      hide: function () {
+        el.classList.remove("presenter-current", "presenter-overflow", "presenter-widget-only");
+      },
+      scrollTarget: function () { return el; }
+    };
+  }
+
   function buildPresenterSlides() {
-    var forwardSlides = Array.prototype.slice.call(document.querySelectorAll("#forward-timeline > .era"));
+    var entries = [];
+    var forwardEras = Array.prototype.slice.call(document.querySelectorAll("#forward-timeline > .era"));
+    forwardEras.forEach(function (era) {
+      var subNodes = buildEraSubslides(era);
+      var eraKey = era.getAttribute("data-era");
+      if (!subNodes) { entries.push(makeRealEntry(era)); return; }
+      subNodes.forEach(function (node) { entries.push(makeVirtualEntry(node, eraKey, era.id)); });
+      entries.push(makeRealEntry(era, { widgetOnly: true }));
+    });
+
     var pastIntro = document.querySelector("#past-timeline > .past-intro");
-    var pastSlides = Array.prototype.slice.call(document.querySelectorAll("#past-timeline > .past"));
-    return forwardSlides.concat(pastIntro ? [pastIntro] : []).concat(pastSlides);
+    if (pastIntro) entries.push(makeRealEntry(pastIntro));
+    Array.prototype.slice.call(document.querySelectorAll("#past-timeline > .past")).forEach(function (s) {
+      entries.push(makeRealEntry(s));
+    });
+    return entries;
+  }
+
+  // Most slides are short enough now (one subsection or card at a
+  // time) to just center — only fall back to top-aligned + scrollable
+  // when a slide genuinely doesn't fit the viewport.
+  function fitPresenterSlide(entry) {
+    var el = entry.fitEl;
+    requestAnimationFrame(function () {
+      el.classList.toggle("presenter-overflow", el.scrollHeight > el.clientHeight + 1);
+      el.scrollTop = 0;
+    });
   }
 
   function showPresenterSlide(index) {
     if (!presenterSlides.length) return;
     index = Math.max(0, Math.min(index, presenterSlides.length - 1));
-    presenterSlides.forEach(function (s) { s.classList.remove("presenter-current"); });
+    var prev = presenterSlides[presenterIndex];
+    if (prev) prev.hide();
     presenterIndex = index;
     var slide = presenterSlides[presenterIndex];
-    slide.classList.add("presenter-current");
-    slide.scrollTop = 0;
+    slide.show();
+    fitPresenterSlide(slide);
 
-    var era = slide.getAttribute("data-era");
-    var past = slide.getAttribute("data-past");
-    if (era) {
-      body.dataset.era = era;
+    if (slide.eraKey) {
+      body.dataset.era = slide.eraKey;
       delete body.dataset.past;
-      yearCounter.textContent = YEAR_BY_ERA[era] || yearCounter.textContent;
-      setActiveDot(slide.id);
-    } else if (past) {
-      body.dataset.past = past;
+      yearCounter.textContent = YEAR_BY_ERA[slide.eraKey] || yearCounter.textContent;
+      if (slide.sectionId) setActiveDot(slide.sectionId);
+    } else if (slide.pastKey) {
+      body.dataset.past = slide.pastKey;
       delete body.dataset.era;
-      var dateEl = slide.querySelector(".past-date");
+      var dateEl = slide.fitEl.querySelector(".past-date");
       yearCounter.textContent = dateEl ? dateEl.textContent : yearCounter.textContent;
     } else {
       // the Past Lightcone intro slide — no theme of its own, borrow the next one's date
       delete body.dataset.past;
+      delete body.dataset.era;
       var next = presenterSlides[presenterIndex + 1];
-      var nextDate = next ? next.querySelector(".past-date") : null;
+      var nextDate = next ? next.fitEl.querySelector(".past-date") : null;
       yearCounter.textContent = nextDate ? nextDate.textContent : yearCounter.textContent;
     }
 
@@ -268,11 +391,28 @@
     presenterToggle.setAttribute("aria-pressed", "true");
     yearCounter.classList.remove("armed");
 
+    // On the Past Lightcone intro screen, body.dataset.past is unset
+    // (undefined) — it never strictly equals an element lacking the
+    // attribute (getAttribute returns null), so a plain === match would
+    // silently fail to find any past-timeline entry at all and fall back
+    // to slide 0 of the *forward* timeline instead. Default to the first
+    // past-timeline entry (the intro slide) in that case, then look for a
+    // more specific match only if a real past section was set.
     var startIndex = 0;
-    presenterSlides.forEach(function (s, i) {
-      if (presenterReturnMode === "forward" && s.getAttribute("data-era") === currentEra) startIndex = i;
-      if (presenterReturnMode === "past" && s.getAttribute("data-past") === currentPast) startIndex = i;
-    });
+    if (presenterReturnMode === "past") {
+      for (var i = 0; i < presenterSlides.length; i++) {
+        if (presenterSlides[i].isPastLike) { startIndex = i; break; }
+      }
+      if (currentPast) {
+        for (var j = 0; j < presenterSlides.length; j++) {
+          if (presenterSlides[j].pastKey === currentPast) { startIndex = j; break; }
+        }
+      }
+    } else if (currentEra) {
+      for (var k = 0; k < presenterSlides.length; k++) {
+        if (presenterSlides[k].eraKey === currentEra) { startIndex = k; break; }
+      }
+    }
     showPresenterSlide(startIndex);
   }
 
@@ -285,9 +425,10 @@
     presenterToggle.setAttribute("aria-pressed", "false");
 
     var slide = presenterSlides[presenterIndex];
-    presenterSlides.forEach(function (s) { s.classList.remove("presenter-current"); });
+    if (slide) slide.hide();
+    presenterVirtualSlide.innerHTML = "";
 
-    var goingPast = slide && (slide.classList.contains("past") || slide.classList.contains("past-intro"));
+    var goingPast = slide && slide.isPastLike;
     if (goingPast) {
       body.dataset.mode = "past";
       forwardMain.setAttribute("hidden", "");
@@ -297,9 +438,10 @@
       pastMain.setAttribute("hidden", "");
       forwardMain.removeAttribute("hidden");
     }
-    if (slide) {
+    var target = slide ? slide.scrollTarget() : null;
+    if (target) {
       requestAnimationFrame(function () {
-        slide.scrollIntoView({ behavior: "instant", block: "start" });
+        target.scrollIntoView({ behavior: "instant", block: "start" });
       });
     }
     updateActiveSection();
