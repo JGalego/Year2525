@@ -614,7 +614,6 @@ body[data-era="beyond"] {
 .era-outro { border-bottom: none; }
 .museum-text { max-width: 60ch; }
 .museum-text .thesis { font-size: 1.3rem; font-family: var(--font-display); border-left: 3px solid var(--accent); padding-left: 1em; margin: 1.6em 0; }
-.museum-text .return-hint { color: var(--muted); font-style: italic; }
 
 /* ==========================================================================
   DEEP ARCHIVE
