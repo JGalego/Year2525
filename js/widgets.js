@@ -38,9 +38,23 @@
   function valuationChart(mount) {
     var c = makeCanvas(mount);
     var ctx = c.ctx;
-    var morph = 0, target = 0;
+    var intensity = 0, target = 0;
     var settleTimer = null;
     var isCoarsePointer = window.matchMedia && window.matchMedia("(hover: none), (pointer: coarse)").matches;
+    var phase = 0;
+
+    var sectors = [
+      { name: "Messaging", base: 0.9, trend: 0.11, amp: 0.08 },
+      { name: "Feed", base: 1.0, trend: 0.17, amp: 0.14 },
+      { name: "Agentic", base: 0.76, trend: 0.24, amp: 0.2 }
+    ];
+
+    function regimeNoise(t, seed) {
+      var a = Math.sin(t * 10 + seed * 2.1) * 0.04;
+      var b = Math.sin(t * 24 + seed * 5.7) * 0.018;
+      var c = Math.cos(t * 4 + seed) * 0.03;
+      return a + b + c;
+    }
 
     function excite(amount, settleDelay) {
       target = Math.min(1, target + amount);
@@ -66,58 +80,150 @@
       }, 2800);
     }
 
-    var labelsCurve = ["$4.2T", "$19T", "$110T", "\u221E"];
-    var labelsCircle = ["Logos", "Nous", "The Sphere", "The One"];
-
     function frame() {
-      morph += (target - morph) * 0.06;
+      intensity += (target - intensity) * 0.06;
+      phase += 0.0045 + intensity * 0.0038;
+
       var w = mount.clientWidth, h = mount.clientHeight || 220;
       ctx.clearRect(0, 0, w, h);
       var accent = cssVar("--accent", "#5ee6c8");
       var accent2 = cssVar("--accent2", "#e65e9c");
       var fg = cssVar("--fg", "#eee");
+      var muted = cssVar("--muted", "#97a0ae");
 
-      // exponential curve control points
-      var n = 60;
-      ctx.beginPath();
-      for (var i = 0; i <= n; i++) {
-        var t = i / n;
-        var curveX = 20 + t * (w - 40);
-        var curveY = h - 20 - (Math.pow(t, 4)) * (h - 60);
-        var angle = -Math.PI / 2 + t * Math.PI * 1.94;
-        var radius = 10 + t * (Math.min(w, h) / 2 - 20);
-        var circX = w / 2 + Math.cos(angle) * radius;
-        var circY = h / 2 + Math.sin(angle) * radius * 0.9;
-        var x = curveX + (circX - curveX) * morph;
-        var y = curveY + (circY - curveY) * morph;
-        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-      }
-      ctx.strokeStyle = accent;
-      ctx.lineWidth = 2.5;
-      ctx.stroke();
+      var left = 44;
+      var right = w - 18;
+      var top = 20;
+      var bottom = h - 22;
+      var chartW = Math.max(120, right - left);
+      var chartH = Math.max(100, bottom - top);
 
-      // concentric rings fade in
-      ctx.save();
-      ctx.globalAlpha = morph * 0.5;
-      for (var r = 1; r <= 4; r++) {
+      ctx.strokeStyle = "rgba(255,255,255,0.09)";
+      ctx.lineWidth = 1;
+      for (var gy = 0; gy <= 5; gy++) {
+        var y = top + (gy / 5) * chartH;
         ctx.beginPath();
-        ctx.arc(w / 2, h / 2, r * Math.min(w, h) / 10, 0, Math.PI * 2);
-        ctx.strokeStyle = accent2;
-        ctx.lineWidth = 1;
+        ctx.moveTo(left, y);
+        ctx.lineTo(right, y);
         ctx.stroke();
       }
-      ctx.restore();
 
-      // labels
-      ctx.font = "11px ui-monospace, monospace";
-      ctx.fillStyle = fg;
-      var labels = morph < 0.5 ? labelsCurve : labelsCircle;
-      ctx.globalAlpha = 0.85;
-      for (var li = 0; li < labels.length; li++) {
-        var lt = li / (labels.length - 1);
-        ctx.fillText(labels[li], 24 + lt * (w - 90), 16);
+      var series = [];
+      var total = [];
+      var n = 95;
+      for (var s = 0; s < sectors.length; s++) {
+        series[s] = [];
       }
-      ctx.globalAlpha = 1;
+
+      for (var i = 0; i <= n; i++) {
+        var t = i / n;
+        var aggregate = 0;
+        for (var k = 0; k < sectors.length; k++) {
+          var sec = sectors[k];
+          var expo = Math.exp(sec.trend * t * (1.8 + intensity * 1.6));
+          var cyc = 1 + regimeNoise(t + phase * (0.45 + k * 0.16), k + 1.8);
+          var frenzy = 1 + intensity * 0.34 * Math.sin(t * 80 + phase * (8 + k * 3));
+          var v = sec.base * expo * cyc * frenzy;
+          series[k].push(v);
+          aggregate += Math.max(0.02, v);
+        }
+        total.push(aggregate);
+      }
+
+      var peak = 0;
+      for (var j = 0; j < total.length; j++) {
+        if (total[j] > peak) peak = total[j];
+      }
+
+      function px(i) { return left + (i / n) * chartW; }
+      function py(v) {
+        var scaled = Math.log(1 + v) / Math.log(1 + peak * 1.1);
+        return bottom - scaled * chartH;
+      }
+
+      var areaGrad = ctx.createLinearGradient(0, top, 0, bottom);
+      areaGrad.addColorStop(0, "rgba(94,230,200,0.22)");
+      areaGrad.addColorStop(1, "rgba(94,230,200,0.01)");
+      ctx.beginPath();
+      ctx.moveTo(px(0), py(total[0]));
+      for (var a = 1; a < total.length; a++) ctx.lineTo(px(a), py(total[a]));
+      ctx.lineTo(px(n), bottom);
+      ctx.lineTo(px(0), bottom);
+      ctx.closePath();
+      ctx.fillStyle = areaGrad;
+      ctx.fill();
+
+      var colors = ["rgba(120,226,170,0.9)", "rgba(255,170,120,0.86)", "rgba(186,160,255,0.92)"];
+      for (var si = 0; si < series.length; si++) {
+        ctx.beginPath();
+        ctx.moveTo(px(0), py(series[si][0]));
+        for (var q = 1; q < series[si].length; q++) ctx.lineTo(px(q), py(series[si][q]));
+        ctx.strokeStyle = colors[si];
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+      }
+
+      ctx.beginPath();
+      ctx.moveTo(px(0), py(total[0]));
+      for (var m = 1; m < total.length; m++) ctx.lineTo(px(m), py(total[m]));
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 2.4;
+      ctx.stroke();
+
+      var cursorI = Math.floor((0.62 + Math.sin(phase * 0.9) * 0.28) * n);
+      var cx = px(cursorI);
+      var cy = py(total[cursorI]);
+      ctx.strokeStyle = "rgba(255,255,255,0.22)";
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(cx, top);
+      ctx.lineTo(cx, bottom);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = accent;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 3.4, 0, Math.PI * 2);
+      ctx.fill();
+
+      var cap = (2.8 + total[cursorI] * 7.4).toFixed(1);
+      var vol = Math.round(19 + intensity * 58 + Math.abs(Math.sin(phase * 5.2)) * 22);
+      var crowd = Math.round(64 + intensity * 32 + Math.abs(Math.cos(phase * 2.3)) * 14);
+
+      ctx.font = "11px ui-monospace, monospace";
+      ctx.fillStyle = muted;
+      ctx.fillText("Attention Cap Index", left, 14);
+      ctx.fillStyle = fg;
+      ctx.fillText("$" + cap + "T", left + 126, 14);
+
+      ctx.fillStyle = muted;
+      ctx.fillText("Volatility", right - 160, 14);
+      ctx.fillStyle = accent2;
+      ctx.fillText(String(vol), right - 92, 14);
+      ctx.fillStyle = muted;
+      ctx.fillText("Crowd Heat", right - 66, 14);
+      ctx.fillStyle = fg;
+      ctx.fillText(crowd + "%", right - 2 - ctx.measureText(crowd + "%").width, 14);
+
+      ctx.fillStyle = "rgba(255,255,255,0.78)";
+      ctx.font = "10px ui-monospace, monospace";
+      ctx.fillText("2015", left, bottom + 14);
+      ctx.fillText("2021", left + chartW * 0.38, bottom + 14);
+      ctx.fillText("2026", right - 26, bottom + 14);
+
+      // Satirical annotation marks the "everything app" narrative spike.
+      ctx.strokeStyle = "rgba(255,255,255,0.22)";
+      ctx.lineWidth = 1;
+      var sx = left + chartW * 0.7;
+      var sy = top + chartH * 0.34;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + 20, sy - 16);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.fillText("Everything app pitch event", sx + 23, sy - 16);
+
+      if (target > 0) target = Math.max(0, target - 0.0026);
 
       requestAnimationFrame(frame);
     }
