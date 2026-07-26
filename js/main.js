@@ -48,7 +48,7 @@
   }
 
   // ---------------------------------------------------------------
-  // Mode switching: Forward Timeline <-> The Archive
+  // Mode switching: Forward Timeline <-> Deep Archive
   // ---------------------------------------------------------------
 
   // The two-argument window.scrollTo(x, y) form defaults to behavior:
@@ -73,7 +73,7 @@
     scrollToTopInstant();
     body.dataset.mode = "past";
     // The previous era's theme must not linger once there's no forward
-    // section left on screen to justify it — the Archive intro
+    // section left on screen to justify it — the Deep Archive intro
     // has no theme of its own and should fall back to the defaults, not
     // whichever era happened to be showing when the visitor left it.
     delete body.dataset.era;
@@ -81,7 +81,7 @@
     pastMain.removeAttribute("hidden");
     scrollToTopInstant(); // reasserted post-toggle in case a layout heuristic nudged it
     yearCounter.classList.remove("armed");
-    yearCounter.setAttribute("aria-label", "You are in the Archive. Click to return to the future.");
+    yearCounter.setAttribute("aria-label", "You are in the Deep Archive. Click to return to the future.");
     var firstDate = pastMain.querySelector(".past .past-date");
     yearCounter.textContent = firstDate ? firstDate.textContent : "?";
     updateActiveSection();
@@ -198,7 +198,7 @@
     // Only accept a near-miss (a thin gap/border between sections, or a
     // hair scrolled past the first/last one) — not "closest of a list
     // that's nowhere near the viewport," which is exactly the situation
-    // on the untracked Past Lightcone intro screen, where the nearest
+    // on the untracked Deep Archive intro screen, where the nearest
     // real .past section can still be most of a page away.
     if (closest && closestDist < window.innerHeight / 2) return closest;
     return null;
@@ -247,12 +247,12 @@
 
   // ---------------------------------------------------------------
   // Presenter Mode — a linear walkthrough: the future timeline, then
-  // the archive, one full-screen slide at a time. Each forward
+  // the deep archive, one full-screen slide at a time. Each forward
   // era is broken into its own title slide plus one slide per
   // subsection (Civilisation/Technology/Intelligence/Creation,
   // interspersed with Successor/Example/Day-in-life/Historical
-  // Importance) and a closing slide for its interactive widget. Archive
-  // stops are left as single slides.
+  // Importance) and a closing slide for its interactive widget. Past
+  // Lightcone stops are left as single slides.
   // ---------------------------------------------------------------
 
   var presenterToggle = document.getElementById("presenter-toggle");
@@ -422,7 +422,7 @@
       var dateEl = slide.fitEl.querySelector(".past-date");
       yearCounter.textContent = dateEl ? dateEl.textContent : yearCounter.textContent;
     } else {
-      // the Archive intro slide — no theme of its own, borrow the next one's date
+      // the Deep Archive intro slide — no theme of its own, borrow the next one's date
       delete body.dataset.past;
       delete body.dataset.era;
       var next = presenterSlides[presenterIndex + 1];
@@ -451,7 +451,7 @@
     presenterToggle.setAttribute("aria-pressed", "true");
     yearCounter.classList.remove("armed");
 
-    // On the Archive intro screen, body.dataset.past is unset
+    // On the Deep Archive intro screen, body.dataset.past is unset
     // (undefined) — it never strictly equals an element lacking the
     // attribute (getAttribute returns null), so a plain === match would
     // silently fail to find any past-timeline entry at all and fall back
