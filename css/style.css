@@ -4,6 +4,15 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+/* Toggling which <main> is hidden changes the document's height by tens
+   of thousands of pixels in one frame. Left to itself, the browser's
+   scroll-anchoring heuristic "corrects" for that shift by silently
+   re-adjusting scrollY to whatever it thinks preserves the old visual
+   position — overriding an explicit scrollTo(0,0) and landing the page
+   somewhere arbitrary in the newly-shown timeline. This is exactly the
+   kind of full-page mode swap that heuristic isn't meant for. */
+html, body { overflow-anchor: none; }
+
 :root {
   --bg: #0b0c10;
   --bg2: #111319;

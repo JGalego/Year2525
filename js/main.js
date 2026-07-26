@@ -17,26 +17,53 @@
   // Mode switching: Forward Timeline <-> Past Lightcone
   // ---------------------------------------------------------------
 
+  // The two-argument window.scrollTo(x, y) form defaults to behavior:
+  // "auto", which — contrary to how easy it is to assume otherwise —
+  // still respects the page's CSS scroll-behavior:smooth and animates
+  // over several hundred milliseconds rather than jumping. Only the
+  // explicit options-object form with behavior:"instant" reliably
+  // bypasses it, which matters here: an animated scroll racing through
+  // dozens of sections mid-transition is exactly what reads as jitter
+  // and a theme stuck on the wrong section.
+  function scrollToTopInstant() {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }
+
   function enterPast() {
     if (body.dataset.mode === "past") return;
+    // Scroll to the top of the (still-visible) current document FIRST, then
+    // swap which <main> is hidden — reordering this the other way around
+    // let the browser briefly render pastMain's content at the stale
+    // scrollY left over from forwardMain, flashing whatever past section
+    // happened to sit at that old offset before snapping to the top.
+    scrollToTopInstant();
     body.dataset.mode = "past";
+    // The previous era's theme must not linger once there's no forward
+    // section left on screen to justify it — the Past Lightcone intro
+    // has no theme of its own and should fall back to the defaults, not
+    // whichever era happened to be showing when the visitor left it.
+    delete body.dataset.era;
     forwardMain.setAttribute("hidden", "");
     pastMain.removeAttribute("hidden");
-    window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+    scrollToTopInstant(); // reasserted post-toggle in case a layout heuristic nudged it
     yearCounter.classList.remove("armed");
     yearCounter.setAttribute("aria-label", "You are in the Past Lightcone. Click to return to the future.");
     var firstDate = pastMain.querySelector(".past .past-date");
     yearCounter.textContent = firstDate ? firstDate.textContent : "?";
+    updateActiveSection();
   }
 
   function enterForward() {
     if (body.dataset.mode === "forward") return;
+    scrollToTopInstant();
     body.dataset.mode = "forward";
+    delete body.dataset.past;
     pastMain.setAttribute("hidden", "");
     forwardMain.removeAttribute("hidden");
-    window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+    scrollToTopInstant(); // reasserted post-toggle in case a layout heuristic nudged it
     yearCounter.setAttribute("aria-label", "Current year in the timeline. This number has been known to do strange things.");
     yearCounter.textContent = YEAR_BY_ERA.present;
+    updateActiveSection();
   }
 
   function toggleMode() {
@@ -95,40 +122,77 @@
     });
   }
 
-  // A thin trigger line at the vertical center of the viewport, rather than
-  // "50% of the section is visible" — the latter never fires for any
-  // section taller than twice the viewport, which most eras here are.
-  var CENTERLINE = { threshold: 0, rootMargin: "-50% 0px -50% 0px" };
+  var pastSections = Array.prototype.slice.call(document.querySelectorAll("#past-timeline .past"));
 
-  if ("IntersectionObserver" in window) {
-    var forwardObserver = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          var era = entry.target.getAttribute("data-era");
-          body.dataset.era = era;
-          if (body.dataset.mode !== "past") {
-            yearCounter.textContent = YEAR_BY_ERA[era] || yearCounter.textContent;
-          }
-          setActiveDot(entry.target.id);
-        }
-      });
-    }, CENTERLINE);
-    eraSections.forEach(function (s) { forwardObserver.observe(s); });
-
-    var pastSections = Array.prototype.slice.call(document.querySelectorAll("#past-timeline .past"));
-    var pastObserver = new IntersectionObserver(function (entries) {
-      entries.forEach(function (entry) {
-        if (entry.isIntersecting) {
-          body.dataset.past = entry.target.getAttribute("data-past");
-          if (body.dataset.mode === "past") {
-            var dateEl = entry.target.querySelector(".past-date");
-            yearCounter.textContent = dateEl ? dateEl.textContent : "?";
-          }
-        }
-      });
-    }, CENTERLINE);
-    pastSections.forEach(function (s) { pastObserver.observe(s); });
+  // Which section currently spans the vertical center of the viewport,
+  // computed directly from live geometry rather than inferred from
+  // IntersectionObserver crossing events. A thin observed "centerline" is
+  // event-driven: on a fast fling, a section can move from fully-below to
+  // fully-above center between two rendered frames without an observer
+  // callback ever firing for it, leaving the theme stuck on whatever
+  // section was last caught — exactly the "keeps the origin section's
+  // style" symptom. Recomputing from scratch on every frame can't skip a
+  // section, no matter how fast the scroll.
+  function sectionAtCenter(list) {
+    var centerY = window.innerHeight / 2;
+    var closest = null;
+    var closestDist = Infinity;
+    for (var i = 0; i < list.length; i++) {
+      var rect = list[i].getBoundingClientRect();
+      if (rect.top <= centerY && rect.bottom >= centerY) return list[i];
+      var mid = (rect.top + rect.bottom) / 2;
+      var dist = Math.abs(mid - centerY);
+      if (dist < closestDist) { closestDist = dist; closest = list[i]; }
+    }
+    // Only accept a near-miss (a thin gap/border between sections, or a
+    // hair scrolled past the first/last one) — not "closest of a list
+    // that's nowhere near the viewport," which is exactly the situation
+    // on the untracked Past Lightcone intro screen, where the nearest
+    // real .past section can still be most of a page away.
+    if (closest && closestDist < window.innerHeight / 2) return closest;
+    return null;
   }
+
+  function updateActiveSection() {
+    scrollTicking = false;
+    if (presenterActive) return;
+    if (body.dataset.mode === "past") {
+      var pastTarget = sectionAtCenter(pastSections);
+      if (pastTarget) {
+        body.dataset.past = pastTarget.getAttribute("data-past");
+        var dateEl = pastTarget.querySelector(".past-date");
+        yearCounter.textContent = dateEl ? dateEl.textContent : yearCounter.textContent;
+      }
+    } else {
+      var eraTarget = sectionAtCenter(eraSections);
+      if (eraTarget) {
+        var era = eraTarget.getAttribute("data-era");
+        body.dataset.era = era;
+        yearCounter.textContent = YEAR_BY_ERA[era] || yearCounter.textContent;
+        setActiveDot(eraTarget.id);
+      }
+    }
+  }
+
+  var scrollTicking = false;
+  function scheduleSectionUpdate() {
+    if (!scrollTicking) {
+      scrollTicking = true;
+      requestAnimationFrame(updateActiveSection);
+    }
+  }
+
+  window.addEventListener("scroll", scheduleSectionUpdate, { passive: true });
+  window.addEventListener("resize", scheduleSectionUpdate);
+  // A very large or momentum-driven scroll can settle slightly further
+  // than wherever our last rAF-throttled sample happened to land — a
+  // harmless final-frame rounding gap in practice, but "scrollend" (fired
+  // once scrolling has genuinely stopped) is a free, unthrottled correctness
+  // net for it where supported.
+  if ("onscrollend" in window) {
+    window.addEventListener("scrollend", updateActiveSection);
+  }
+  scheduleSectionUpdate();
 
   // ---------------------------------------------------------------
   // Presenter Mode — a linear walkthrough: the future timeline, then
@@ -235,9 +299,10 @@
     }
     if (slide) {
       requestAnimationFrame(function () {
-        slide.scrollIntoView({ behavior: "instant" in window ? "instant" : "auto" });
+        slide.scrollIntoView({ behavior: "instant", block: "start" });
       });
     }
+    updateActiveSection();
   }
 
   if (presenterToggle) {
