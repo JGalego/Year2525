@@ -1757,6 +1757,95 @@
   // ---------------------------------------------------------------
   // Past — MS-DOS terminal
   // ---------------------------------------------------------------
+  function livingFire(mount) {
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;padding:.4rem;text-align:left;";
+    var bar = controlBar();
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:230px;";
+    var status = statusLine(2.6);
+    wrap.appendChild(bar); wrap.appendChild(canvasHost); wrap.appendChild(status); mount.appendChild(wrap);
+
+    var fuel = 0.62;
+    var oxygen = 0.48;
+    var heat = 0.55;
+    var sparks = [];
+
+    ctlButton(bar, "Add wood", "Feed the fire", function () { fuel = Math.min(1, fuel + 0.32); });
+    ctlButton(bar, "Bellows", "Give the fire a short rush of air", function () { oxygen = Math.min(1, oxygen + 0.5); });
+    ctlButton(bar, "Bank", "Cover the coals and preserve them", function () { oxygen = Math.max(0.08, oxygen - 0.42); });
+    spacer(bar);
+    ctlButton(bar, "Douse", "Reduce the fire to wet embers", function () { fuel *= 0.18; heat *= 0.2; oxygen = 0.12; });
+
+    var cv = makeCanvas(canvasHost);
+    var ctx = cv.ctx;
+    var last = performance.now();
+
+    function flamePath(cx, base, width, height, phase, color, alpha) {
+      var sway = Math.sin(phase * 1.7) * width * 0.2;
+      ctx.beginPath();
+      ctx.moveTo(cx - width / 2, base);
+      ctx.bezierCurveTo(cx - width * 0.72, base - height * 0.35, cx + sway - width * 0.18, base - height * 0.72, cx + sway, base - height);
+      ctx.bezierCurveTo(cx + sway + width * 0.2, base - height * 0.62, cx + width * 0.72, base - height * 0.34, cx + width / 2, base);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.globalAlpha = alpha;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    function frame(now) {
+      var dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      fuel = Math.max(0, fuel - dt * (0.018 + oxygen * 0.036));
+      oxygen += (0.34 - oxygen) * dt * 0.45;
+      var targetHeat = Math.min(1, fuel * (0.35 + oxygen * 1.2));
+      heat += (targetHeat - heat) * dt * 2.2;
+
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 230;
+      ctx.clearRect(0, 0, w, h);
+      var base = h - 34, cx = w / 2;
+
+      var glow = ctx.createRadialGradient(cx, base - 45, 2, cx, base - 45, 120 + heat * 80);
+      glow.addColorStop(0, "rgba(255,150,40," + (0.25 + heat * 0.42) + ")");
+      glow.addColorStop(1, "rgba(80,15,0,0)");
+      ctx.fillStyle = glow; ctx.fillRect(0, 0, w, h);
+
+      // Charred logs expose increasingly bright coals as heat rises.
+      ctx.save(); ctx.translate(cx, base + 3); ctx.rotate(-0.13);
+      ctx.fillStyle = "#3a1c10"; ctx.fillRect(-74, -8, 148, 17);
+      ctx.strokeStyle = "rgba(255,105,20," + heat + ")"; ctx.lineWidth = 3; ctx.strokeRect(-70, -5, 140, 10); ctx.restore();
+      ctx.save(); ctx.translate(cx, base + 3); ctx.rotate(0.13);
+      ctx.fillStyle = "#29130c"; ctx.fillRect(-70, -7, 140, 16); ctx.restore();
+
+      if (heat > 0.035) {
+        var time = now / 340;
+        flamePath(cx, base, 72 + heat * 55, 34 + heat * 128, time, "#e84018", 0.72 + heat * 0.22);
+        flamePath(cx - 8, base - 2, 45 + heat * 38, 25 + heat * 96, time + 1.7, "#ff9824", 0.84);
+        flamePath(cx + 6, base - 4, 23 + heat * 24, 18 + heat * 65, time + 3.2, "#ffe17a", 0.9);
+      }
+
+      if (Math.random() < heat * oxygen * 0.34) {
+        sparks.push({ x: cx + (Math.random() - 0.5) * 80, y: base - 30, vx: (Math.random() - 0.5) * 20, vy: -35 - Math.random() * 75, life: 1 });
+      }
+      sparks.forEach(function (spark) {
+        spark.x += spark.vx * dt; spark.y += spark.vy * dt; spark.vy += 8 * dt; spark.life -= dt * 0.72;
+        ctx.fillStyle = "rgba(255,190,70," + Math.max(0, spark.life) + ")";
+        ctx.fillRect(spark.x, spark.y, 2, 2);
+      });
+      sparks = sparks.filter(function (spark) { return spark.life > 0; });
+
+      var state = heat > 0.72 ? "roaring" : heat > 0.38 ? "steady" : heat > 0.1 ? "failing" : fuel > 0.05 ? "smouldering" : "cold";
+      status.innerHTML = "Fire: <b>" + state + "</b> · fuel " + Math.round(fuel * 100) + "% · airflow " + Math.round(oxygen * 100) +
+        "% · heat " + Math.round(heat * 100) + "%<br>It consumes fuel continuously. Neglect is an input.";
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // ---------------------------------------------------------------
+  // Past — MS-DOS terminal
+  // ---------------------------------------------------------------
   function archiveInterface(mount) {
     var demo = mount.getAttribute("data-demo");
     var status = document.createElement("p");
@@ -3945,6 +4034,7 @@
     "weather-nudge": weatherNudge,
     "hum-tune": humTune,
     "archive-interface": archiveInterface,
+    "living-fire": livingFire,
     "dos-terminal": dosTerminal,
     "punchcard": punchcard,
     "abacus": abacus,
