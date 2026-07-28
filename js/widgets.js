@@ -36,199 +36,257 @@
   // Present Day — Global Attention Capitalization
   // ---------------------------------------------------------------
   function valuationChart(mount) {
-    var c = makeCanvas(mount);
-    var ctx = c.ctx;
-    var intensity = 0, target = 0;
-    var settleTimer = null;
-    var isCoarsePointer = window.matchMedia && window.matchMedia("(hover: none), (pointer: coarse)").matches;
-    var phase = 0;
+  var c = makeCanvas(mount);
+  var ctx = c.ctx;
 
-    var sectors = [
-      { name: "Messaging", base: 0.9, trend: 0.11, amp: 0.08 },
-      { name: "Feed", base: 1.0, trend: 0.17, amp: 0.14 },
-      { name: "Agentic", base: 0.76, trend: 0.24, amp: 0.2 }
-    ];
+  var HYPE_ACCELERATION = 0.00012;
+  var CRASH_MULTIPLIER = 1.8;
+  var USER_HYPE = 0;
+  var TIME = 0;
+  var LAST_EVENT_TIME = -Infinity;
+  var DRAGGING = false;
+  var DRAG_START_Y = 0;
+  var DRAG_HYPE_ADDED = 0;
 
-    function regimeNoise(t, seed) {
-      var a = Math.sin(t * 10 + seed * 2.1) * 0.04;
-      var b = Math.sin(t * 24 + seed * 5.7) * 0.018;
-      var c = Math.cos(t * 4 + seed) * 0.03;
-      return a + b + c;
+  var sectors = [
+    { name: "LLM Grift", base: 0.8, trend: 0.28, color: "#ff6b6b", eventWeight: 1.3 },
+    { name: "VC Hopium", base: 1.0, trend: 0.32, color: "#4ecdc4", eventWeight: 1.5 },
+    { name: "Regulatory Theater", base: 0.6, trend: 0.15, color: "#ffe66d", eventWeight: 0.9 }
+  ];
+
+  var events = [
+    { time: 0.15, label: "ChatGPT Thanksgiving dinner", volatility: 0.45, hypeBoost: 0.3, description: "Family arguments about sentience spike engagement +400%" },
+    { time: 0.35, label: "VCs panic-fund everything", volatility: 0.55, hypeBoost: 0.5, description: "Seed rounds for AI-powered toasters close in 48 hours" },
+    { time: 0.50, label: "Senate AI hearing", volatility: 0.35, hypeBoost: -0.2, description: "Regulators ask but what if it gets too good?" },
+    { time: 0.65, label: "SXSW: AI, AI, AI", volatility: 0.60, hypeBoost: 0.4, description: "17 identical AI for social good panels run concurrently" },
+    { time: 0.80, label: "The Great Inference Shortage", volatility: 0.75, hypeBoost: -0.3, description: "GPUs sold out. Cloud costs skyrocket." },
+    { time: 0.95, label: "AI Alignment Twitter War", volatility: 0.85, hypeBoost: 0.2, description: "Blockchain-level discourse. Nobody changes their mind." },
+    { time: 1.10, label: "Agentic Summer", volatility: 0.65, hypeBoost: 0.4, description: "Your toaster can now reason. It still burns the bread." },
+    { time: 1.25, label: "The Correction", volatility: 1.20, hypeBoost: -0.8, description: "Revenue: $0. Burn: $100M. But the demo looked great!" }
+  ];
+
+  var currentEvent = null;
+  var eventToast = document.createElement("div");
+  eventToast.className = "valuation-toast";
+  eventToast.style.cssText = "position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;padding:8px 14px;border-radius:6px;font:11px ui-monospace,monospace;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:100;";
+  mount.appendChild(eventToast);
+
+  function showEvent(event) {
+    currentEvent = event;
+    eventToast.textContent = "🚨 " + event.label + " | " + event.description;
+    eventToast.style.opacity = 1;
+    setTimeout(function() { eventToast.style.opacity = 0; }, 5000);
+    USER_HYPE = Math.max(0, USER_HYPE + event.hypeBoost);
+  }
+
+  mount.addEventListener("pointerdown", function(e) {
+    DRAGGING = true;
+    DRAG_START_Y = e.clientY;
+    DRAG_HYPE_ADDED = 0;
+    if (mount.setPointerCapture) mount.setPointerCapture(e.pointerId);
+  });
+
+  mount.addEventListener("pointermove", function(e) {
+    if (!DRAGGING) return;
+    var deltaY = DRAG_START_Y - e.clientY;
+    if (deltaY > 0) {
+      DRAG_HYPE_ADDED = deltaY * HYPE_ACCELERATION;
+      USER_HYPE += DRAG_HYPE_ADDED;
     }
+    DRAG_START_Y = e.clientY;
+  });
 
-    function excite(amount, settleDelay) {
-      target = Math.min(1, target + amount);
-      if (settleTimer) clearTimeout(settleTimer);
-      if (settleDelay) {
-        settleTimer = setTimeout(function () { target = 0; }, settleDelay);
+  mount.addEventListener("pointerup", function() {
+    DRAGGING = false;
+    if (mount.releasePointerCapture) mount.releasePointerCapture();
+  });
+  mount.addEventListener("pointerleave", function() { DRAGGING = false; });
+
+  var lastFrameTime = performance.now();
+  var n = 120;
+  var series = sectors.map(function() { return []; });
+  var total = [];
+
+  function frame(now) {
+    var deltaTime = (now - lastFrameTime) / 1000;
+    lastFrameTime = now;
+    TIME += deltaTime * 0.25;
+
+    for (var i = 0; i < events.length; i++) {
+      if (events[i].time > LAST_EVENT_TIME && events[i].time <= TIME) {
+        showEvent(events[i]);
+        LAST_EVENT_TIME = events[i].time;
       }
     }
 
-    mount.addEventListener("pointermove", function () { excite(0.02, 0); });
-    mount.addEventListener("pointerdown", function () { excite(0.38, 900); });
-    mount.addEventListener("pointerenter", function () { excite(0.14, 0); });
-    mount.addEventListener("focus", function () { excite(0.22, 1200); });
-    mount.addEventListener("pointerleave", function () { target = 0; });
-    mount.addEventListener("blur", function () { target = 0; });
+    var w = mount.clientWidth, h = mount.clientHeight || 220;
+    ctx.clearRect(0, 0, w, h);
 
-    // Touch devices have no hover path, so periodically "breathe" the chart
-    // to signal it is interactive even before the first tap.
-    if (isCoarsePointer) {
-      setInterval(function () {
-        if (document.hidden) return;
-        excite(0.1, 650);
-      }, 2800);
+    var accent = cssVar("--accent", "#ff6b6b");
+    var accent2 = cssVar("--accent2", "#4ecdc4");
+    var fg = cssVar("--fg", "#eee");
+    var muted = cssVar("--muted", "#97a0ae");
+
+    var left = 44, right = w - 18, top = 20, bottom = h - 22;
+    var chartW = Math.max(120, right - left);
+    var chartH = Math.max(100, bottom - top);
+
+    ctx.strokeStyle = "rgba(255,255,255,0.09)";
+    ctx.lineWidth = 1;
+    for (var gy = 0; gy <= 5; gy++) {
+      var y = top + (gy / 5) * chartH;
+      ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke();
     }
 
-    function frame() {
-      intensity += (target - intensity) * 0.06;
-      phase += 0.0045 + intensity * 0.0038;
+    series.forEach(function(s) { s.length = 0; });
+    total.length = 0;
 
-      var w = mount.clientWidth, h = mount.clientHeight || 220;
-      ctx.clearRect(0, 0, w, h);
-      var accent = cssVar("--accent", "#5ee6c8");
-      var accent2 = cssVar("--accent2", "#e65e9c");
-      var fg = cssVar("--fg", "#eee");
-      var muted = cssVar("--muted", "#97a0ae");
-
-      var left = 44;
-      var right = w - 18;
-      var top = 20;
-      var bottom = h - 22;
-      var chartW = Math.max(120, right - left);
-      var chartH = Math.max(100, bottom - top);
-
-      ctx.strokeStyle = "rgba(255,255,255,0.09)";
-      ctx.lineWidth = 1;
-      for (var gy = 0; gy <= 5; gy++) {
-        var y = top + (gy / 5) * chartH;
-        ctx.beginPath();
-        ctx.moveTo(left, y);
-        ctx.lineTo(right, y);
-        ctx.stroke();
-      }
-
-      var series = [];
-      var total = [];
-      var n = 95;
-      for (var s = 0; s < sectors.length; s++) {
-        series[s] = [];
-      }
-
-      for (var i = 0; i <= n; i++) {
-        var t = i / n;
-        var aggregate = 0;
-        for (var k = 0; k < sectors.length; k++) {
-          var sec = sectors[k];
-          var expo = Math.exp(sec.trend * t * (1.8 + intensity * 1.6));
-          var cyc = 1 + regimeNoise(t + phase * (0.45 + k * 0.16), k + 1.8);
-          var frenzy = 1 + intensity * 0.34 * Math.sin(t * 80 + phase * (8 + k * 3));
-          var v = sec.base * expo * cyc * frenzy;
-          series[k].push(v);
-          aggregate += Math.max(0.02, v);
+    for (var i = 0; i <= n; i++) {
+      var t = i / n;
+      var aggregate = 0;
+      sectors.forEach(function(sec, si) {
+        var expo = Math.exp(sec.trend * t * (1.5 + USER_HYPE * 0.5));
+        var cyclePos = (t * 1.8 + TIME * 0.3) % 1.0;
+        var bubble = 1.0;
+        if (cyclePos < 0.6) {
+          bubble = 1 + Math.pow(cyclePos / 0.6, 2) * (1.8 + USER_HYPE * CRASH_MULTIPLIER);
+        } else {
+          bubble = 1 - Math.pow((cyclePos - 0.6) / 0.4, 2) * (0.7 + USER_HYPE * CRASH_MULTIPLIER);
         }
-        total.push(aggregate);
-      }
-
-      var peak = 0;
-      for (var j = 0; j < total.length; j++) {
-        if (total[j] > peak) peak = total[j];
-      }
-
-      function px(i) { return left + (i / n) * chartW; }
-      function py(v) {
-        var scaled = Math.log(1 + v) / Math.log(1 + peak * 1.1);
-        return bottom - scaled * chartH;
-      }
-
-      var areaGrad = ctx.createLinearGradient(0, top, 0, bottom);
-      areaGrad.addColorStop(0, "rgba(94,230,200,0.22)");
-      areaGrad.addColorStop(1, "rgba(94,230,200,0.01)");
-      ctx.beginPath();
-      ctx.moveTo(px(0), py(total[0]));
-      for (var a = 1; a < total.length; a++) ctx.lineTo(px(a), py(total[a]));
-      ctx.lineTo(px(n), bottom);
-      ctx.lineTo(px(0), bottom);
-      ctx.closePath();
-      ctx.fillStyle = areaGrad;
-      ctx.fill();
-
-      var colors = ["rgba(120,226,170,0.9)", "rgba(255,170,120,0.86)", "rgba(186,160,255,0.92)"];
-      for (var si = 0; si < series.length; si++) {
-        ctx.beginPath();
-        ctx.moveTo(px(0), py(series[si][0]));
-        for (var q = 1; q < series[si].length; q++) ctx.lineTo(px(q), py(series[si][q]));
-        ctx.strokeStyle = colors[si];
-        ctx.lineWidth = 1.2;
-        ctx.stroke();
-      }
-
-      ctx.beginPath();
-      ctx.moveTo(px(0), py(total[0]));
-      for (var m = 1; m < total.length; m++) ctx.lineTo(px(m), py(total[m]));
-      ctx.strokeStyle = accent;
-      ctx.lineWidth = 2.4;
-      ctx.stroke();
-
-      var cursorI = Math.floor((0.62 + Math.sin(phase * 0.9) * 0.28) * n);
-      var cx = px(cursorI);
-      var cy = py(total[cursorI]);
-      ctx.strokeStyle = "rgba(255,255,255,0.22)";
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(cx, top);
-      ctx.lineTo(cx, bottom);
-      ctx.stroke();
-      ctx.setLineDash([]);
-      ctx.fillStyle = accent;
-      ctx.beginPath();
-      ctx.arc(cx, cy, 3.4, 0, Math.PI * 2);
-      ctx.fill();
-
-      var cap = (2.8 + total[cursorI] * 7.4).toFixed(1);
-      var vol = Math.round(19 + intensity * 58 + Math.abs(Math.sin(phase * 5.2)) * 22);
-      var crowd = Math.round(64 + intensity * 32 + Math.abs(Math.cos(phase * 2.3)) * 14);
-
-      ctx.font = "11px ui-monospace, monospace";
-      ctx.fillStyle = muted;
-      ctx.fillText("Attention Cap Index", left, 14);
-      ctx.fillStyle = fg;
-      ctx.fillText("$" + cap + "T", left + 126, 14);
-
-      ctx.fillStyle = muted;
-      ctx.fillText("Volatility", right - 160, 14);
-      ctx.fillStyle = accent2;
-      ctx.fillText(String(vol), right - 92, 14);
-      ctx.fillStyle = muted;
-      ctx.fillText("Crowd Heat", right - 66, 14);
-      ctx.fillStyle = fg;
-      ctx.fillText(crowd + "%", right - 2 - ctx.measureText(crowd + "%").width, 14);
-
-      ctx.fillStyle = "rgba(255,255,255,0.78)";
-      ctx.font = "10px ui-monospace, monospace";
-      ctx.fillText("2015", left, bottom + 14);
-      ctx.fillText("2021", left + chartW * 0.38, bottom + 14);
-      ctx.fillText("2026", right - 26, bottom + 14);
-
-      // Satirical annotation marks the "everything app" narrative spike.
-      ctx.strokeStyle = "rgba(255,255,255,0.22)";
-      ctx.lineWidth = 1;
-      var sx = left + chartW * 0.7;
-      var sy = top + chartH * 0.34;
-      ctx.beginPath();
-      ctx.moveTo(sx, sy);
-      ctx.lineTo(sx + 20, sy - 16);
-      ctx.stroke();
-      ctx.fillStyle = "rgba(255,255,255,0.85)";
-      ctx.fillText("Everything app pitch event", sx + 23, sy - 16);
-
-      if (target > 0) target = Math.max(0, target - 0.0026);
-
-      requestAnimationFrame(frame);
+        var eventBoost = 1;
+        for (var e = 0; e < events.length; e++) {
+          if (Math.abs(t - events[e].time) < 0.05) {
+            eventBoost += events[e].volatility * sec.eventWeight;
+          }
+        }
+        var dragBoost = 1 + DRAG_HYPE_ADDED * 20;
+        var v = sec.base * expo * bubble * eventBoost * dragBoost;
+        series[si].push(Math.max(0.01, v));
+        aggregate += Math.max(0.01, v);
+      });
+      total.push(aggregate);
     }
+
+    var peak = 0;
+    total.forEach(function(v) { if (v > peak) peak = v; });
+
+    function px(i) { return left + (i / n) * chartW; }
+    function py(v) {
+      var scaled = Math.log(1 + v) / Math.log(1 + peak * 1.15);
+      return bottom - scaled * chartH;
+    }
+
+    var areaGrad = ctx.createLinearGradient(0, top, 0, bottom);
+    areaGrad.addColorStop(0, "rgba(255,107,107,0.25)");
+    areaGrad.addColorStop(0.5, "rgba(78,205,196,0.15)");
+    areaGrad.addColorStop(1, "rgba(255,230,109,0.05)");
+    ctx.beginPath();
+    ctx.moveTo(px(0), py(total[0]));
+    for (var a = 1; a < total.length; a++) ctx.lineTo(px(a), py(total[a]));
+    ctx.lineTo(px(n), bottom); ctx.lineTo(px(0), bottom); ctx.closePath();
+    ctx.fillStyle = areaGrad;
+    ctx.fill();
+
+    var colors = ["#ff6b6b", "#4ecdc4", "#ffe66d"];
+    sectors.forEach(function(_, si) {
+      ctx.beginPath();
+      ctx.moveTo(px(0), py(series[si][0]));
+      for (var q = 1; q < series[si].length; q++) ctx.lineTo(px(q), py(series[si][q]));
+      ctx.strokeStyle = colors[si];
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    });
+
+    ctx.beginPath();
+    ctx.moveTo(px(0), py(total[0]));
+    for (var m = 1; m < total.length; m++) ctx.lineTo(px(m), py(total[m]));
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 2.2;
+    ctx.stroke();
+
+    var cursorI = Math.min(n, Math.floor(TIME * (n / 1.5)));
+    var cx = px(cursorI);
+    var cy = py(total[cursorI]);
+    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, bottom); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = accent;
+    ctx.beginPath(); ctx.arc(cx, cy, 3.8, 0, Math.PI * 2); ctx.fill();
+
+    var cap = (USER_HYPE * 15 + total[cursorI] * 3).toFixed(1);
+    var vol = Math.min(99, Math.round(40 + USER_HYPE * 40 + Math.abs(Math.sin(TIME * 3.2)) * 15));
+    var crowd = Math.min(100, Math.round(60 + USER_HYPE * 25 + Math.abs(Math.cos(TIME * 1.8)) * 10));
+
+    ctx.font = "10px ui-monospace, monospace";
+    ctx.fillStyle = muted;
+    ctx.fillText("Hype Cap Index", left, 13);
+    ctx.fillStyle = "#ff6b6b";
+    ctx.fillText("$" + cap + "T", left + 110, 13);
+
+    ctx.fillStyle = muted;
+    ctx.fillText("Delusion", right - 140, 13);
+    ctx.fillStyle = accent2;
+    ctx.fillText(vol + "%", right - 85, 13);
+
+    ctx.fillStyle = muted;
+    ctx.fillText("Bagholders", right - 60, 13);
+    ctx.fillStyle = fg;
+    ctx.fillText(crowd + "%", right - 5, 13);
+
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.font = "9px ui-monospace, monospace";
+    ctx.fillText("2020: AI Winter", left, bottom + 14);
+    ctx.fillText("2023: Generative Summer", left + chartW * 0.35, bottom + 14);
+    ctx.fillText("2025: Agentic Autumn", left + chartW * 0.7, bottom + 14);
+    ctx.fillText("2026: ???", right - 30, bottom + 14);
+
+    if (USER_HYPE > 2) {
+      ctx.fillStyle = "#ff6b6b";
+      ctx.font = "italic 10px ui-monospace, monospace";
+      ctx.fillText("You did this.", right - 70, bottom - 5);
+    }
+    if (USER_HYPE > 5) {
+      ctx.fillStyle = "#ff4757";
+      ctx.font = "bold 11px ui-monospace, monospace";
+      ctx.fillText("WE ARE ALL GOING TO JAIL", left + chartW * 0.3, bottom - 5);
+    }
+
+    if (TIME > 1.3 && USER_HYPE > 3 && Math.random() < 0.003) {
+      ctx.fillStyle = "rgba(255,255,255,0.9)";
+      ctx.font = "bold 12px ui-monospace, monospace";
+      ctx.fillText("The demo *was* the product.", left + chartW * 0.3, bottom - 25);
+    }
+
     requestAnimationFrame(frame);
   }
+  requestAnimationFrame(frame);
+
+  var tooltip = document.createElement("div");
+  tooltip.style.cssText = "position:absolute;background:rgba(0,0,0,0.9);color:#fff;padding:6px 10px;border-radius:4px;font:10px ui-monospace,monospace;opacity:0;transition:opacity 0.2s;pointer-events:none;z-index:100;";
+  mount.appendChild(tooltip);
+
+  mount.addEventListener("pointermove", function(e) {
+    var rect = mount.getBoundingClientRect();
+    var x = e.clientX - rect.left;
+    var y = e.clientY - rect.top;
+    for (var si = 0; si < sectors.length; si++) {
+      var cursorI = Math.min(n, Math.floor((x - left) / (chartW / n)));
+      if (cursorI >= 0 && cursorI < series[si].length) {
+        var val = series[si][cursorI];
+        if (val > 0.1) {
+          tooltip.textContent = sectors[si].name + ": $" + (val * 3).toFixed(1) + "T | Disrupting " + (Math.random() > 0.5 ? "everything" : "nothing");
+          tooltip.style.left = (x + 10) + "px";
+          tooltip.style.top = (y - 20) + "px";
+          tooltip.style.opacity = 1;
+          return;
+        }
+      }
+    }
+    tooltip.style.opacity = 0;
+  });
+}
 
   // ---------------------------------------------------------------
   // 2525 — Negotiate with your Mandate
