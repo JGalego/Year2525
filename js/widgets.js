@@ -96,9 +96,11 @@
     DRAG_START_Y = e.clientY;
   });
 
-  mount.addEventListener("pointerup", function() {
+  mount.addEventListener("pointerup", function(e) {
     DRAGGING = false;
-    if (mount.releasePointerCapture) mount.releasePointerCapture();
+    if (mount.releasePointerCapture) {
+      try { mount.releasePointerCapture(e.pointerId); } catch (err) {}
+    }
   });
   mount.addEventListener("pointerleave", function() { DRAGGING = false; });
 
@@ -106,6 +108,12 @@
   var n = 120;
   var series = sectors.map(function() { return []; });
   var total = [];
+  // Shared chart-layout geometry: computed fresh every frame() (the canvas
+  // can resize), but also read by the tooltip's pointermove handler below,
+  // which runs outside frame()'s own scope — so these live out here rather
+  // than as `var`s local to frame(), which a previous pass left them as,
+  // throwing "left is not defined" on every pointer move over the chart.
+  var left = 44, right = 0, top = 20, bottom = 0, chartW = 0, chartH = 0;
 
   function frame(now) {
     var deltaTime = (now - lastFrameTime) / 1000;
@@ -127,9 +135,9 @@
     var fg = cssVar("--fg", "#eee");
     var muted = cssVar("--muted", "#97a0ae");
 
-    var left = 44, right = w - 18, top = 20, bottom = h - 22;
-    var chartW = Math.max(120, right - left);
-    var chartH = Math.max(100, bottom - top);
+    right = w - 18; bottom = h - 22;
+    chartW = Math.max(120, right - left);
+    chartH = Math.max(100, bottom - top);
 
     ctx.strokeStyle = "rgba(255,255,255,0.09)";
     ctx.lineWidth = 1;
@@ -225,15 +233,19 @@
     ctx.fillStyle = "#ff6b6b";
     ctx.fillText("$" + cap + "T", left + 110, 13);
 
+    // Right-hand stat cluster, laid out from a fixed anchor so the four
+    // labels/values never collide regardless of digit count (a previous
+    // pass had "Bagholders" run its own text width straight into the
+    // crowd% value it sits next to).
     ctx.fillStyle = muted;
-    ctx.fillText("Delusion", right - 140, 13);
+    ctx.fillText("Delusion", right - 172, 13);
     ctx.fillStyle = accent2;
-    ctx.fillText(vol + "%", right - 85, 13);
+    ctx.fillText(vol + "%", right - 108, 13);
 
     ctx.fillStyle = muted;
-    ctx.fillText("Bagholders", right - 60, 13);
+    ctx.fillText("Bags", right - 76, 13);
     ctx.fillStyle = fg;
-    ctx.fillText(crowd + "%", right - 5, 13);
+    ctx.fillText(crowd + "%", right - 32, 13);
 
     ctx.fillStyle = "rgba(255,255,255,0.6)";
     ctx.font = "9px ui-monospace, monospace";
