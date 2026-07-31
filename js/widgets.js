@@ -1787,15 +1787,114 @@
       mount.appendChild(status);
       status.textContent = "Consent state: technically pending.";
     } else if (demo === "iphone") {
+      // Toggling between two strings demonstrated nothing. The argument
+      // the era actually made — and then lost in a single 2013 release —
+      // is that the textures were a teaching aid: a picture of an older
+      // grammar laid under a new one so a sheet of glass would read as
+      // something you already knew how to use. So this is a pad you can
+      // use, with a switch that strips every affordance and leaves the
+      // functions exactly where they were.
+      var PAPER = "#f6ecc9", RULE = "#9ab7d8", LEATHER = "#6b4a2a";
+      var NOTES = [
+        "Buy a notebook app that looks like this notebook.",
+        "Ask why the calendar has stitching. Nobody knows. It tests well.",
+        "The microphone in Voice Memos is chrome. There is no microphone.",
+        "Green baize for the card games. Real felt was costed, briefly.",
+        "Note to self: the bookshelf is a picture of a bookshelf."
+      ];
+      var idx = 0, stubs = 2, flat = false;
+
       var phone = document.createElement("div");
       phone.className = "archive-demo-screen";
-      phone.style.cssText = "background:#6b2f18;border:8px ridge #9b5b32;border-radius:18px;color:#2c1a0c;box-shadow:inset 0 0 0 2px #d7a66b;";
-      phone.innerHTML = '<div style="background:#f4e4ad;min-height:92px;padding:.8rem;background-image:repeating-linear-gradient(#0000 0 22px,#8fb0d455 23px 24px);box-shadow:inset 0 0 8px #6b421f;"><b>NOTES</b><br><span class="skeuo-note">Buy a notebook app that looks like this notebook.</span></div>';
-      phone.appendChild(button("Turn the page", function () {
-        var note = phone.querySelector(".skeuo-note");
-        note.textContent = note.textContent.indexOf("Buy") === 0 ? "Polish the virtual leather. Avoid the actual notebook." : "Buy a notebook app that looks like this notebook.";
-      }));
+      var header = document.createElement("div");
+      var stubStrip = document.createElement("div");
+      var sheet = document.createElement("div");
+      var noteText = document.createElement("div");
+      var meta = document.createElement("div");
+      sheet.appendChild(noteText);
+      sheet.appendChild(meta);
+      phone.appendChild(header);
+      phone.appendChild(stubStrip);
+      phone.appendChild(sheet);
+
+      var ipBar = document.createElement("div");
+      ipBar.style.cssText = "display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.7rem;";
+
+      var tearBtn = button("Tear off page", function () {
+        idx = (idx + 1) % NOTES.length;
+        stubs = Math.min(stubs + 1, 6);
+        render();
+        status.textContent = flat
+          ? "Next note. Nothing was torn, because there is nothing to tear."
+          : "Page torn off. The stub stays behind, because a legal pad would have left one.";
+      });
+      var flatBtn = button("Flatten to iOS 7", function () {
+        flat = !flat;
+        flatBtn.textContent = flat ? "Put the leather back" : "Flatten to iOS 7";
+        render();
+        status.textContent = flat
+          ? "Same app. Same functions, in the same positions. Each one is now the word for itself."
+          : "The textures are back — and you no longer need them, which is exactly how they lost the argument.";
+      });
+      ipBar.appendChild(tearBtn);
+      ipBar.appendChild(flatBtn);
+
+      function render() {
+        noteText.textContent = NOTES[idx];
+        meta.textContent = (flat ? "" : "— ") + "Note " + (idx + 1) + " of " + NOTES.length;
+
+        if (!flat) {
+          phone.style.cssText = "background:linear-gradient(#7d5731,#5c3d20);border:8px ridge #9b5b32;" +
+            "border-radius:18px;color:#2c1a0c;padding:.7rem;box-shadow:inset 0 0 0 2px #d7a66b,0 10px 26px rgba(0,0,0,.35);";
+          // Stitching is an inset dashed outline: the single cheapest
+          // signal that something is pretending to be a manufactured object.
+          header.style.cssText = "background:linear-gradient(#8a6236,#6b4a2a);color:#f7ecd6;text-align:center;" +
+            "font:700 .84rem/2 'Marker Felt','Bradley Hand',Georgia,serif;border:1px solid #46301a;border-radius:7px 7px 0 0;" +
+            "box-shadow:inset 0 1px 0 rgba(255,255,255,.3);text-shadow:0 -1px 0 rgba(0,0,0,.55);" +
+            "outline:1px dashed rgba(247,236,214,.55);outline-offset:-4px;";
+          header.textContent = "Notes";
+          stubStrip.style.cssText = "height:9px;background-color:" + LEATHER + ";background-repeat:repeat-x;" +
+            "background-size:10px 9px;background-position:bottom;" +
+            "background-image:linear-gradient(45deg," + PAPER + " 50%,transparent 50%)," +
+            "linear-gradient(-45deg," + PAPER + " 50%,transparent 50%);" +
+            "opacity:" + (0.35 + stubs * 0.11) + ";";
+          stubStrip.hidden = false;
+          // The rules are phased to the text's 22px line box so the
+          // writing sits on the lines. Ruled paper that the handwriting
+          // floats between is the one mistake the illusion cannot survive.
+          sheet.style.cssText = "min-height:96px;padding:14px 14px 14px 34px;background-color:" + PAPER + ";" +
+            "background-image:linear-gradient(90deg,transparent 0 26px,#d98b8b 26px 27px,transparent 27px)," +
+            "repeating-linear-gradient(transparent 0 21px," + RULE + " 21px 22px);" +
+            "background-position:0 0,0 15px;" +
+            "box-shadow:inset 0 6px 10px -6px rgba(80,50,20,.55);border-radius:0 0 5px 5px;";
+          noteText.style.cssText = "font:1rem/22px 'Marker Felt','Bradley Hand',Georgia,serif;color:#39301f;";
+          meta.style.cssText = "margin:0;font:.7rem/22px 'Marker Felt',Georgia,serif;color:#8a7550;";
+          [tearBtn, flatBtn].forEach(function (b) {
+            b.style.cssText = "font:600 .74rem/1 -apple-system,Helvetica,sans-serif;padding:.42rem .8rem;color:#2c1a0c;" +
+              "background:linear-gradient(#fdf6e4,#dcc79b);border:1px solid #8a6a3c;border-radius:7px;" +
+              "box-shadow:inset 0 1px 0 #fff,0 2px 3px rgba(0,0,0,.3);cursor:pointer;";
+          });
+        } else {
+          phone.style.cssText = "background:#fff;border:1px solid #e2e2e6;border-radius:12px;color:#000;padding:0;overflow:hidden;";
+          header.style.cssText = "background:#fff;color:#000;text-align:center;font:400 .84rem/2.4 -apple-system,'Helvetica Neue',sans-serif;" +
+            "border-bottom:1px solid #e2e2e6;letter-spacing:.01em;";
+          header.textContent = "Notes";
+          stubStrip.hidden = true;
+          sheet.style.cssText = "min-height:96px;padding:.85rem;background:#fff;";
+          noteText.style.cssText = "font:400 1rem/1.4 -apple-system,'Helvetica Neue',sans-serif;color:#000;";
+          meta.style.cssText = "margin-top:.5rem;font:.72rem -apple-system,'Helvetica Neue',sans-serif;color:#8e8e93;";
+          [tearBtn, flatBtn].forEach(function (b) {
+            b.style.cssText = "font:400 .82rem/1 -apple-system,'Helvetica Neue',sans-serif;padding:.42rem .1rem;" +
+              "color:#007aff;background:none;border:none;cursor:pointer;";
+          });
+        }
+      }
+
+      render();
       mount.appendChild(phone);
+      mount.appendChild(ipBar);
+      mount.appendChild(status);
+      status.textContent = "The paper is not paper, the leather is not leather, and the stitching is holding nothing together.";
     } else if (demo === "xp") {
       // Was five lines of text in a box that toggled display. The Start
       // menu was the most-looked-at object of its decade and deserves its

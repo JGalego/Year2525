@@ -2,8 +2,6 @@
   "use strict";
 
   var body = document.body;
-  var forwardMain = document.getElementById("forward-timeline");
-  var pastMain = document.getElementById("past-timeline");
   var yearCounter = document.getElementById("year-counter");
   var dotnav = document.getElementById("dotnav");
   var logo = document.querySelector(".logo");
@@ -48,70 +46,22 @@
   }
 
   // ---------------------------------------------------------------
-  // Mode switching: Forward Timeline <-> Deep Archive
+  // One continuous timeline
   // ---------------------------------------------------------------
+  // The page used to be two <main>s, one of them hidden, swapped by a
+  // mode toggle — which meant two thirds of the exhibits were reachable
+  // only by finding an easter egg. It is now a single scroll: forward
+  // from the present to Year 12,525, and then back down the other wing
+  // through the real record. Nothing is hidden, so there is no mode, no
+  // hidden-swap, and no scroll-position juggling around the swap.
 
-  // The two-argument window.scrollTo(x, y) form defaults to behavior:
-  // "auto", which — contrary to how easy it is to assume otherwise —
-  // still respects the page's CSS scroll-behavior:smooth and animates
-  // over several hundred milliseconds rather than jumping. Only the
-  // explicit options-object form with behavior:"instant" reliably
-  // bypasses it, which matters here: an animated scroll racing through
-  // dozens of sections mid-transition is exactly what reads as jitter
-  // and a theme stuck on the wrong section.
   function scrollToTopInstant() {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }
 
-  function enterPast() {
-    if (body.dataset.mode === "past") return;
-    // Scroll to the top of the (still-visible) current document FIRST, then
-    // swap which <main> is hidden — reordering this the other way around
-    // let the browser briefly render pastMain's content at the stale
-    // scrollY left over from forwardMain, flashing whatever past section
-    // happened to sit at that old offset before snapping to the top.
-    scrollToTopInstant();
-    body.dataset.mode = "past";
-    // The previous era's theme must not linger once there's no forward
-    // section left on screen to justify it — the Deep Archive intro
-    // has no theme of its own and should fall back to the defaults, not
-    // whichever era happened to be showing when the visitor left it.
-    delete body.dataset.era;
-    forwardMain.setAttribute("hidden", "");
-    pastMain.removeAttribute("hidden");
-    scrollToTopInstant(); // reasserted post-toggle in case a layout heuristic nudged it
-    yearCounter.classList.remove("armed");
-    yearCounter.setAttribute("aria-label", "You are in the Deep Archive. Click to return to the future.");
-    var firstDate = pastMain.querySelector(".past .past-date");
-    yearCounter.textContent = firstDate ? firstDate.textContent : "?";
-    updateActiveSection();
-  }
-
-  function enterForward() {
-    if (body.dataset.mode === "forward") return;
-    scrollToTopInstant();
-    body.dataset.mode = "forward";
-    delete body.dataset.past;
-    pastMain.setAttribute("hidden", "");
-    forwardMain.removeAttribute("hidden");
-    scrollToTopInstant(); // reasserted post-toggle in case a layout heuristic nudged it
-    yearCounter.setAttribute("aria-label", "Current year in the timeline. This number has been known to do strange things.");
-    yearCounter.textContent = YEAR_BY_ERA.present;
-    updateActiveSection();
-  }
-
-  function toggleMode() {
-    if (body.dataset.mode === "past") enterForward();
-    else enterPast();
-  }
-
-  // Discovery path 1: the year counter itself.
-  yearCounter.addEventListener("click", function () {
-    if (presenterActive) return;
-    toggleMode();
-  });
-
-  // Discovery path 2: the Konami code, from anywhere on the page.
+  // The Konami code no longer has a mode to flip. It now jumps to the
+  // hinge — the point where the gallery turns around — which is the one
+  // piece of navigation a very long single page genuinely wants.
   var KONAMI = ["ArrowUp","ArrowUp","ArrowDown","ArrowDown","ArrowLeft","ArrowRight","ArrowLeft","ArrowRight","b","a"];
   var konamiProgress = 0;
   window.addEventListener("keydown", function (e) {
@@ -120,7 +70,11 @@
       konamiProgress++;
       if (konamiProgress === KONAMI.length) {
         konamiProgress = 0;
-        if (!presenterActive) toggleMode();
+        if (!presenterActive) {
+          var hinge = document.getElementById("archive");
+          if (hinge) hinge.scrollIntoView({ behavior: "smooth", block: "start" });
+          showSecret("The other wing is not hidden any more. It is simply further down.");
+        }
       }
     } else {
       konamiProgress = (e.key === KONAMI[0]) ? 1 : 0;
@@ -137,33 +91,15 @@
     });
   });
 
-  // Escape always returns to the future (unless Presenter Mode is handling it).
-  window.addEventListener("keydown", function (e) {
-    if (presenterActive) return;
-    if (e.key === "Escape" && body.dataset.mode === "past") enterForward();
-  });
-
-  // A little "someone is near the easter egg" hint after idle hovering.
-  var armTimer = null;
-  yearCounter.addEventListener("mouseenter", function () {
-    armTimer = setTimeout(function () { yearCounter.classList.add("armed"); }, 900);
-  });
-  yearCounter.addEventListener("mouseleave", function () {
-    clearTimeout(armTimer);
-    if (body.dataset.mode !== "past") yearCounter.classList.remove("armed");
-  });
-
   if (logo) {
     logo.addEventListener("click", function (e) {
       e.preventDefault();
       if (presenterActive) exitPresenter();
-      if (body.dataset.mode === "past") enterForward();
-      else {
-        scrollToTopInstant();
-        body.dataset.era = "present";
-        yearCounter.textContent = YEAR_BY_ERA.present;
-        setActiveDot("present");
-      }
+      scrollToTopInstant();
+      body.dataset.era = "present";
+      delete body.dataset.past;
+      yearCounter.textContent = YEAR_BY_ERA.present;
+      setActiveDot("present");
       if (window.history && window.history.replaceState) {
         window.history.replaceState(null, "", window.location.pathname + window.location.search);
       }
@@ -178,7 +114,6 @@
   // Scroll-driven era theming + nav state
   // ---------------------------------------------------------------
 
-  var eraSections = Array.prototype.slice.call(document.querySelectorAll("#forward-timeline .era"));
   var dotlinks = dotnav ? Array.prototype.slice.call(dotnav.querySelectorAll("a")) : [];
 
   function setActiveDot(id) {
@@ -187,7 +122,12 @@
     });
   }
 
-  var pastSections = Array.prototype.slice.call(document.querySelectorAll("#past-timeline .past"));
+  // One list, in document order: the forward eras, then the other wing's
+  // sections. Which theme family a section belongs to is read off the
+  // element rather than off a page mode, because there is no page mode.
+  var sections = Array.prototype.slice.call(
+    document.querySelectorAll("#timeline .era, #timeline .past")
+  );
 
   // Which section currently spans the vertical center of the viewport,
   // computed directly from live geometry rather than inferred from
@@ -212,8 +152,8 @@
     // Only accept a near-miss (a thin gap/border between sections, or a
     // hair scrolled past the first/last one) — not "closest of a list
     // that's nowhere near the viewport," which is exactly the situation
-    // on the untracked Deep Archive intro screen, where the nearest
-    // real .past section can still be most of a page away.
+    // on the untracked hinge screen between the two wings, where the
+    // nearest real section can still be most of a page away.
     if (closest && closestDist < window.innerHeight / 2) return closest;
     return null;
   }
@@ -221,21 +161,19 @@
   function updateActiveSection() {
     scrollTicking = false;
     if (presenterActive) return;
-    if (body.dataset.mode === "past") {
-      var pastTarget = sectionAtCenter(pastSections);
-      if (pastTarget) {
-        body.dataset.past = pastTarget.getAttribute("data-past");
-        var dateEl = pastTarget.querySelector(".past-date");
-        yearCounter.textContent = dateEl ? dateEl.textContent : yearCounter.textContent;
-      }
+    var target = sectionAtCenter(sections);
+    if (!target) return;
+    var era = target.getAttribute("data-era");
+    if (era) {
+      body.dataset.era = era;
+      delete body.dataset.past;
+      yearCounter.textContent = YEAR_BY_ERA[era] || yearCounter.textContent;
+      setActiveDot(target.id);
     } else {
-      var eraTarget = sectionAtCenter(eraSections);
-      if (eraTarget) {
-        var era = eraTarget.getAttribute("data-era");
-        body.dataset.era = era;
-        yearCounter.textContent = YEAR_BY_ERA[era] || yearCounter.textContent;
-        setActiveDot(eraTarget.id);
-      }
+      body.dataset.past = target.getAttribute("data-past");
+      delete body.dataset.era;
+      var dateEl = target.querySelector(".past-date");
+      yearCounter.textContent = dateEl ? dateEl.textContent : yearCounter.textContent;
     }
   }
 
@@ -280,7 +218,6 @@
   var presenterSlides = [];
   var presenterIndex = 0;
   var presenterActive = false;
-  var presenterReturnMode = "forward";
 
   function subNode(headingHTML, bodyHTML) {
     var d = document.createElement("div");
@@ -387,7 +324,7 @@
 
   function buildPresenterSlides() {
     var entries = [];
-    var forwardEras = Array.prototype.slice.call(document.querySelectorAll("#forward-timeline > .era"));
+    var forwardEras = Array.prototype.slice.call(document.querySelectorAll("#timeline > .era"));
     forwardEras.forEach(function (era) {
       var subNodes = buildEraSubslides(era);
       var eraKey = era.getAttribute("data-era");
@@ -396,9 +333,9 @@
       entries.push(makeRealEntry(era, { widgetOnly: true }));
     });
 
-    var pastIntro = document.querySelector("#past-timeline > .past-intro");
+    var pastIntro = document.querySelector("#timeline > .past-intro");
     if (pastIntro) entries.push(makeRealEntry(pastIntro));
-    Array.prototype.slice.call(document.querySelectorAll("#past-timeline > .past")).forEach(function (s) {
+    Array.prototype.slice.call(document.querySelectorAll("#timeline > .past")).forEach(function (s) {
       entries.push(makeRealEntry(s));
     });
     return entries;
@@ -452,35 +389,22 @@
   function enterPresenter() {
     if (presenterActive) return;
     presenterActive = true;
-    presenterReturnMode = body.dataset.mode === "past" ? "past" : "forward";
     var currentEra = body.dataset.era;
     var currentPast = body.dataset.past;
 
     presenterSlides = buildPresenterSlides();
-    forwardMain.removeAttribute("hidden");
-    pastMain.removeAttribute("hidden");
     body.classList.add("presenter-mode");
     presenterControls.hidden = false;
     presenterExit.hidden = false;
     presenterToggle.setAttribute("aria-pressed", "true");
-    yearCounter.classList.remove("armed");
 
-    // On the Deep Archive intro screen, body.dataset.past is unset
-    // (undefined) — it never strictly equals an element lacking the
-    // attribute (getAttribute returns null), so a plain === match would
-    // silently fail to find any past-timeline entry at all and fall back
-    // to slide 0 of the *forward* timeline instead. Default to the first
-    // past-timeline entry (the intro slide) in that case, then look for a
-    // more specific match only if a real past section was set.
+    // Open on whichever exhibit the reader was actually looking at. Only
+    // one of the two theme keys is ever set at a time now, so the live one
+    // says which wing they are in without needing a remembered mode.
     var startIndex = 0;
-    if (presenterReturnMode === "past") {
-      for (var i = 0; i < presenterSlides.length; i++) {
-        if (presenterSlides[i].isPastLike) { startIndex = i; break; }
-      }
-      if (currentPast) {
-        for (var j = 0; j < presenterSlides.length; j++) {
-          if (presenterSlides[j].pastKey === currentPast) { startIndex = j; break; }
-        }
+    if (currentPast) {
+      for (var j = 0; j < presenterSlides.length; j++) {
+        if (presenterSlides[j].pastKey === currentPast) { startIndex = j; break; }
       }
     } else if (currentEra) {
       for (var k = 0; k < presenterSlides.length; k++) {
@@ -502,16 +426,6 @@
     if (slide) slide.hide();
     presenterVirtualSlide.innerHTML = "";
 
-    var goingPast = slide && slide.isPastLike;
-    if (goingPast) {
-      body.dataset.mode = "past";
-      forwardMain.setAttribute("hidden", "");
-      pastMain.removeAttribute("hidden");
-    } else {
-      body.dataset.mode = "forward";
-      pastMain.setAttribute("hidden", "");
-      forwardMain.removeAttribute("hidden");
-    }
     var target = slide ? slide.scrollTarget() : null;
     if (target) {
       requestAnimationFrame(function () {

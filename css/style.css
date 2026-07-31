@@ -92,17 +92,13 @@ code { font-family: var(--font-mono); background: rgba(255,255,255,0.08); paddin
   padding: .2rem .65rem;
   cursor: default;
   opacity: .55;
-  transition: opacity .3s ease, color .3s ease, border-color .3s ease, transform .3s ease;
+  /* An odometer, not a control: with one continuous timeline there is no
+     mode left for it to toggle, so it just reports the exhibit you are
+     standing in — 2026 up to 12,525, then all the way back down. */
+  display: inline-block;
+  transition: opacity .3s ease, color .3s ease, border-color .3s ease;
   user-select: none;
 }
-.year-counter:hover, .year-counter:focus-visible {
-  opacity: 1;
-  color: var(--accent);
-  border-color: var(--accent);
-  cursor: pointer;
-}
-.year-counter.armed { animation: pulse-year 1.4s ease-in-out infinite; }
-@keyframes pulse-year { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 
 .header-btn {
   background: none;
@@ -171,7 +167,9 @@ code { font-family: var(--font-mono); background: rgba(255,255,255,0.08); paddin
 @media (min-width: 860px) {
   .dotnav { display: flex; }
 }
-body[data-mode="past"] .dotnav { display: none; }
+/* The dot nav indexes the forward gallery only; once you are walking
+   back through the other wing there is nothing for it to point at. */
+body[data-past] .dotnav { display: none; }
 
 /* ---------------------------- presenter mode ---------------------------- */
 
@@ -231,8 +229,7 @@ body.presenter-mode .site-footer { display: none; }
 body.presenter-mode .dotnav { display: none !important; }
 body.presenter-mode .year-counter { cursor: default; }
 
-body.presenter-mode #forward-timeline,
-body.presenter-mode #past-timeline {
+body.presenter-mode #timeline {
   display: block !important;
 }
 body.presenter-mode .era,
@@ -633,7 +630,7 @@ body[data-era="beyond"] {
   DEEP ARCHIVE
   ========================================================================== */
 
-body[data-mode="past"] { --transition-era: background-color .5s ease, color .5s ease, border-color .5s ease; }
+body[data-past] { --transition-era: background-color .5s ease, color .5s ease, border-color .5s ease; }
 
 .past-intro {
   min-height: 90vh;

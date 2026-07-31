@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>YEAR2525.XYZ — The Future History of Applications</title>
-<meta name="description" content="A speculative museum of what comes after software. Scroll forward through the future history of applications, or find the year counter and go the other way.">
+<meta name="description" content="A speculative museum of what comes after software: one continuous scroll forward to the year 12,525, then back down the whole real record to before anyone had a word for any of it.">
 <link rel="icon" href="data:,">
 <link rel="stylesheet" href="css/style.css">
 </head>
-<body data-mode="forward" data-era="present">
+<body data-era="present">
 
 <svg class="icon-sprite" aria-hidden="true" focusable="false">
   <symbol id="icon-present" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -271,7 +271,7 @@
 
 <header class="site-header">
   <a class="logo" href="#present">YEAR2525<span class="dot">.</span>XYZ</a>
-  <button id="year-counter" class="year-counter" title="2026" aria-label="Current year in the timeline. This number has been known to do strange things.">2026</button>
+  <output id="year-counter" class="year-counter" aria-live="polite" aria-label="Year of the exhibit you are looking at">2026</output>
   <button id="presenter-toggle" class="header-btn" type="button" title="Presenter Mode" aria-label="Enter presenter mode" aria-pressed="false" hidden>
     <svg class="header-btn-icon" aria-hidden="true" width="16" height="16"><use href="#icon-presenter"></use></svg>
   </button>
@@ -296,7 +296,7 @@
 </div>
 <button id="presenter-exit" class="presenter-exit" type="button" aria-label="Exit presenter mode" hidden>×</button>
 
-<main id="forward-timeline">
+<main id="timeline">
 
 <!-- ================= PRESENT DAY ================= -->
 <section class="era" id="present" data-era="present">
@@ -756,23 +756,21 @@
       <p>We keep this gallery — <em>Applications, c. 1970s–9500s CE</em> — near the entrance, because visitors find it the easiest one to misunderstand quickly and the hardest to stop thinking about afterward.</p>
       <p>For roughly eight thousand years, a series of civilisations believed, in succession, that they had finally found the stable word for what we are looking at in this room. They called it software. Then a Mandate. Then a Cultivar, a Folding, a Chorale, a Tilth, a Liturgy, a Weather, a Resonance. Each civilisation was quite sure its word was the last one it would need. None of them were right, including, we should say plainly, whatever this placard calls it, which will also not be the last word.</p>
       <p>What we find, walking backward through the whole gallery rather than forward through it as its residents did, is not a story of tools getting smarter. It is a much older story, the same one this museum's other wing tells about fire and knotted rope and the first grain tally scratched into wet clay: the story of intention finding successively less resistant paths into reality. Software, on this reading, was never the destination. It was a temporary phase — an unusually well-documented one — in something considerably larger and considerably older than computing.</p>
-      <p>There is no interactive exhibit in this final room. We considered one, and decided against it: every era before this one taught its visitors to expect a button, a slider, a clause to invoke, and each in turn quietly took the button away. We have simply finished the job. The only apparatus left in this room is the fact that you are still reading, which — we can tell you this with the confidence of ten thousand years' hindsight — was the actual interface all along.</p>
+      <p>There is no interactive exhibit in this last room of the gallery. We considered one, and decided against it: every era before this one taught its visitors to expect a button, a slider, a clause to invoke, and each in turn quietly took the button away. We have simply finished the job. The only apparatus left in this room is the fact that you are still reading, which — we can tell you this with the confidence of ten thousand years' hindsight — was the actual interface all along.</p>
       <p>For guests still auditing old machine anxieties, a side placard index is available at the reception desk under BASILISK, SKYNET, SINGULARITY, PAPERCLIP, AM, and TED.</p>
       <p class="thesis">How does intention become reality? Every era in this gallery answers it differently. It is, as far as our archives show, the only question in the whole exhibit that has never once gone extinct.</p>
     </div>
   </div>
 </section>
 
-</main>
 
-<!-- ================= DEEP ARCHIVE ================= -->
-<main id="past-timeline" hidden>
+<!-- ================= THE OTHER WING ================= -->
 
-  <div class="past-intro">
+  <div class="past-intro" id="archive">
     <svg class="era-icon" aria-hidden="true" width="28" height="28"><use href="#icon-rewind"></use></svg>
-    <p class="era-kicker">The Deep Archive</p>
+    <p class="era-kicker">The Other Wing · Walking Back</p>
     <h1 class="era-title">Before Applications</h1>
-    <p class="era-tagline">You have found the number. Now scroll, and watch the interface give up everything it has learned, one century at a time, until it was never invented at all.</p>
+    <p class="era-tagline">The gallery behind you runs one way only. This one runs the other, out of the room you started in and back down the whole length of the record — the interface giving up everything it has learned, one century at a time, until it was never invented at all.</p>
   </div>
 
   <section class="past" data-past="modern-web">

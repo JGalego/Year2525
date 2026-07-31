@@ -2,9 +2,11 @@
 
 **year2525.xyz** — a fictional future history (and deep archive) of applications.
 
-Inspired by Zager & Evans' *In the Year 2525*, this is a static, single-page museum that scrolls forward through the invented future of software — from today's apps, through Mandates, Cultivars, Foldings, Chorales, Tilth, Liturgies, Weathers, and Resonances, to a closing curator's note from the year 12,525.
+Inspired by Zager & Evans' *In the Year 2525*, this is a static, single-page museum you walk in one continuous scroll.
 
-There is a hidden way to go the other direction instead: a **Deep Archive**, regressing through the real history of computation and media — modern web, skeuomorphism, Windows, the ZX Spectrum, System 7, DOS, the 1980s underground, mainframes, punch cards, Jacquard looms, Babbage, the abacus, clay tablets, knotted rope, memory palaces, language, fire, and pre-symbolic cognition. Find the year counter near the top of the page. Or try the Konami code.
+It runs **forward** first, through the invented future of software — from today's apps, through Mandates, Cultivars, Foldings, Chorales, Tilth, Liturgies, Weathers and Resonances, to a curator's note written in the year 12,525. That note is the hinge. Past it the gallery turns around and walks **back** down the real record — modern web, skeuomorphism, Windows, the ZX Spectrum, System 7, DOS, the 1980s underground, mainframes, punch cards, Jacquard looms, Babbage, the abacus, clay tablets, knotted rope, memory palaces, language, fire, and pre-symbolic cognition.
+
+Thirty-three exhibits, twenty-eight of them interactive. Nothing is hidden behind a mode: the year counter in the header is a readout, not a control, and it reports whatever room you are standing in — 2026 up to 12,525, then all the way back to before anyone had a word for any of it.
 
 ## Stack
 
@@ -22,7 +24,7 @@ Then open `http://localhost:8000`.
 
 ## Structure
 
-- `index.html` — all forward-timeline and deep-archive content
+- `index.html` — every exhibit, in one `<main>`, in scroll order
 - `css/style.css` — base layout plus a distinct visual theme per era
-- `js/main.js` — scroll-driven era theming, the easter-egg mode toggle, Konami code
+- `js/main.js` — scroll-driven era theming, the year readout, dot nav, presenter mode, typed easter eggs
 - `js/widgets.js` — the per-era interactive experiences (canvas + DOM), lazily initialized
