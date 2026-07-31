@@ -670,6 +670,10 @@ body[data-mode="past"] { --transition-era: background-color .5s ease, color .5s 
 .archive-demo button { font: inherit; cursor: pointer; }
 .archive-demo-screen { min-height: 130px; padding: 1rem; border: 1px solid var(--border); overflow: hidden; }
 .archive-demo-status { margin: .65rem 0 0 !important; font-family: var(--font-mono); font-size: .75rem; }
+/* The console log is the one place a long line lands inside a box that
+   clips: .archive-demo-screen is overflow:hidden and <pre> does not wrap,
+   so an ABEND message was being cut off mid-word at the right edge. */
+.archive-demo .job-log { white-space: pre-wrap; overflow-wrap: anywhere; margin: .5rem 0 0; }
 
 /* regressing visual language, oldest → newest as we go further back */
 

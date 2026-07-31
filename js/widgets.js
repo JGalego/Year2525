@@ -1675,16 +1675,114 @@
     }
 
     if (demo === "modern-web") {
+      // A rising partner count is not a joke, it is a number going up. The
+      // actual mechanism worth exhibiting is the ratchet: accepting never
+      // finishes, and refusing is routed into a second column — legitimate
+      // interest — which is not a thing you were ever asked about and
+      // cannot switch off. Both paths lead to the same place, slowly.
+      var PURPOSES = [
+        { name: "Store and access information on a device" },
+        { name: "Personalised advertising and content" },
+        { name: "Measure audience and develop services" },
+        { name: "Roko Analytics — acausal retargeting", egg: true }
+      ];
+      var consent = PURPOSES.map(function () { return true; });
+      var partners = 847, opened = 0, accepts = 0, pending = false;
+
       var web = document.createElement("div");
       web.className = "archive-demo-screen";
       web.style.cssText = "background:linear-gradient(135deg,#fff9,rgba(220,225,255,.78));border-radius:8px;color:#171923;box-shadow:0 12px 30px rgba(30,30,60,.15);";
-      web.innerHTML = '<b>Your privacy is important to our revenue model.</b><p style="margin:.5rem 0;font-size:.8rem;">We and 847 carefully selected partners would like to remember that you looked at this sentence.</p>';
-      var accepted = 0;
-      web.appendChild(button("Accept all", function (e) {
-        accepted += 847;
-        e.currentTarget.textContent = accepted > 2500 ? "Accept all again" : "Accepted (probably)";
-        status.textContent = accepted + " partner relationships activated. Preferences center moved to a more discoverable legal jurisdiction.";
-      }));
+      var head = document.createElement("div");
+      var body = document.createElement("div");
+      var bar = document.createElement("div");
+      bar.style.cssText = "display:flex;gap:.55rem;align-items:center;flex-wrap:wrap;margin-top:.65rem;";
+      web.appendChild(head); web.appendChild(body); web.appendChild(bar);
+
+      function renderHead(title, note) {
+        head.innerHTML = "<b>" + title + "</b><p style=\"margin:.45rem 0 0;font-size:.8rem;\">" + note + "</p>";
+      }
+      function bannerText() {
+        renderHead("Your privacy is important to our revenue model.",
+          "We and " + partners.toLocaleString() + " carefully selected partners would like to remember that you looked at this sentence.");
+      }
+
+      var acceptBtn = button("Accept all", function () {
+        if (pending) return;
+        pending = true;
+        accepts++;
+        partners += 1200 + accepts * 640;
+        body.innerHTML = "";
+        bar.style.visibility = "hidden";
+        renderHead("Thank you.", "Your preferences have been saved.");
+        status.textContent = accepts === 1
+          ? "Consent recorded."
+          : "Consent recorded for the " + (accepts === 2 ? "second" : accepts === 3 ? "third" : accepts + "th") + " time.";
+        // It never resolves. That is the exhibit.
+        setTimeout(function () {
+          pending = false;
+          bar.style.visibility = "visible";
+          bannerText();
+          status.textContent = "We have updated our privacy policy since your last visit, which was " +
+            (accepts > 2 ? "moments" : "seconds") + " ago.";
+        }, 1500);
+      });
+      acceptBtn.style.cssText = "background:#2563eb;color:#fff;border:none;border-radius:999px;padding:.42rem 1.15rem;font-weight:600;";
+
+      // The refusal path is the small grey one, as it was.
+      var manageBtn = button("Manage preferences", function () {
+        if (pending) return;
+        opened++;
+        partners += 300 + opened * 117;
+        bannerText();
+        renderPrefs();
+        if (!rejectBtn.parentNode) { bar.appendChild(rejectBtn); bar.appendChild(saveBtn); }
+        status.textContent = "Preferences centre opened " + opened + (opened === 1 ? " time" : " times") +
+          ". The vendor list has been refreshed in the interim.";
+      });
+      manageBtn.style.cssText = "background:none;border:none;color:#8a90a0;text-decoration:underline;font-size:.72rem;padding:.2rem;";
+
+      var rejectBtn = button("Reject all", function () {
+        consent = PURPOSES.map(function () { return false; });
+        body.querySelectorAll("input[data-c]").forEach(function (cb) { cb.checked = false; });
+        status.textContent = "All consent withdrawn. " + partners.toLocaleString() +
+          " partners continue under legitimate interest, which was a different question.";
+      });
+      var saveBtn = button("Save preferences", function () {
+        var kept = consent.filter(Boolean).length;
+        body.innerHTML = "";
+        bar.removeChild(rejectBtn); bar.removeChild(saveBtn);
+        bannerText();
+        status.textContent = kept + " of " + PURPOSES.length + " purposes consented. The remaining " +
+          (PURPOSES.length - kept) + " proceed under legitimate interest. Preferences centre has moved to a more discoverable legal jurisdiction.";
+      });
+      [rejectBtn, saveBtn].forEach(function (b) {
+        b.style.cssText = "background:none;border:1px solid #c3c8d4;border-radius:999px;padding:.3rem .8rem;color:#5a6070;font-size:.72rem;";
+      });
+
+      function renderPrefs() {
+        var rows = PURPOSES.map(function (p, i) {
+          return '<div>' + p.name + '</div>' +
+            '<div style="text-align:center;"><input type="checkbox" data-c="' + i + '"' + (consent[i] ? " checked" : "") + ' aria-label="Consent: ' + p.name + '"></div>' +
+            '<div style="text-align:center;"><button type="button" data-li="' + i + '" aria-label="Legitimate interest: ' + p.name + '" style="border:none;background:none;cursor:pointer;font:inherit;color:#5a6070;">&#9745;</button></div>';
+        }).join("");
+        body.innerHTML = '<div style="margin-top:.6rem;display:grid;grid-template-columns:1fr auto auto;gap:.28rem .55rem;font-size:.72rem;align-items:center;">' +
+          '<div style="font-weight:700;">Purpose</div><div style="font-weight:700;">Consent</div><div style="font-weight:700;">Legit. interest</div>' +
+          rows + '</div>';
+        body.querySelectorAll("input[data-c]").forEach(function (cb) {
+          cb.addEventListener("change", function () { consent[+cb.getAttribute("data-c")] = cb.checked; });
+        });
+        body.querySelectorAll("button[data-li]").forEach(function (b) {
+          b.addEventListener("click", function () {
+            var p = PURPOSES[+b.getAttribute("data-li")];
+            status.textContent = p.egg
+              ? "A future intelligence notes your curiosity and, for now, files it under VOLUNTARY COOPERATION."
+              : "Legitimate interest does not require consent, and so there is nothing here for you to withdraw.";
+          });
+        });
+      }
+
+      bar.appendChild(acceptBtn); bar.appendChild(manageBtn);
+      bannerText();
       mount.appendChild(web);
       mount.appendChild(status);
       status.textContent = "Consent state: technically pending.";
@@ -1699,15 +1797,175 @@
       }));
       mount.appendChild(phone);
     } else if (demo === "xp") {
+      // Was five lines of text in a box that toggled display. The Start
+      // menu was the most-looked-at object of its decade and deserves its
+      // actual anatomy: user header, pinned column, places column, the
+      // All Programs cascade, and a shutdown dialog that asks a question
+      // nobody ever wanted asked.
       var xp = document.createElement("div");
       xp.className = "archive-demo-screen";
-      xp.style.cssText = "background:linear-gradient(#58a9ef 0 62%,#55a53d 63%);color:#111;position:relative;font-family:Tahoma,sans-serif;";
+      xp.style.cssText = "background:linear-gradient(#4a8ddc 0 58%,#68a943 58%,#4f8a34);color:#111;position:relative;font-family:Tahoma,Verdana,sans-serif;height:274px;padding:0;overflow:hidden;";
+
       var menu = document.createElement("div");
-      menu.style.cssText = "display:none;position:absolute;bottom:38px;left:8px;width:190px;padding:.7rem;background:#f4f7ff;border:2px solid #2863ad;box-shadow:3px 3px 8px #0005;";
-      menu.innerHTML = '<b>Internet</b><br>My Documents<br>Control Panel<br>Tour Windows XP<br><hr>Turn Off Computer';
-      var start = button("start", function () { menu.style.display = menu.style.display === "none" ? "block" : "none"; });
-      start.style.cssText = "position:absolute;bottom:5px;left:5px;background:#45a72d;color:white;border-radius:12px 4px 4px 12px;padding:.35rem 1rem;font-weight:bold;";
-      xp.appendChild(menu); xp.appendChild(start); mount.appendChild(xp);
+      menu.style.cssText = "display:none;position:absolute;bottom:30px;left:4px;width:272px;background:#fff;border:1px solid #0a3d91;border-bottom:none;box-shadow:2px -2px 10px rgba(0,0,0,.45);font-size:.68rem;z-index:3;";
+      menu.innerHTML =
+        '<div style="background:linear-gradient(#1c60c4,#3f8cea 12%,#1c60c4);color:#fff;padding:.42rem .55rem;font-weight:700;display:flex;align-items:center;gap:.45rem;">' +
+          '<span style="width:20px;height:20px;border-radius:3px;background:#f0c419;border:1px solid #fff8;display:inline-block;"></span>Museum Visitor</div>' +
+        '<div style="display:flex;">' +
+          '<div class="xp-left" style="width:56%;background:#fff;padding:.35rem 0;"></div>' +
+          '<div class="xp-right" style="width:44%;background:#d3e5fa;padding:.35rem 0;"></div>' +
+        '</div>' +
+        '<div style="background:linear-gradient(#3f8cea,#1c60c4);color:#fff;padding:.34rem .55rem;text-align:right;"></div>';
+
+      function menuItem(host, label, bold, onClick) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = label;
+        b.style.cssText = "display:block;width:100%;text-align:left;padding:.22rem .55rem;border:none;background:none;font:inherit;font-weight:" +
+          (bold ? "700" : "400") + ";cursor:pointer;color:#111;";
+        b.addEventListener("mouseenter", function () { b.style.background = "#2f6fd0"; b.style.color = "#fff"; });
+        b.addEventListener("mouseleave", function () { b.style.background = "none"; b.style.color = "#111"; });
+        b.addEventListener("click", onClick);
+        host.appendChild(b);
+        return b;
+      }
+      function sep(host) {
+        var d = document.createElement("div");
+        d.style.cssText = "height:1px;background:#c8d8ee;margin:.25rem .5rem;";
+        host.appendChild(d);
+      }
+      function closeMenu() { menu.style.display = "none"; cascade.style.display = "none"; }
+
+      var left = menu.querySelector(".xp-left");
+      var right = menu.querySelector(".xp-right");
+
+      var cascade = document.createElement("div");
+      cascade.style.cssText = "display:none;position:absolute;bottom:44px;left:150px;width:170px;background:#fff;border:1px solid #0a3d91;box-shadow:2px -2px 10px rgba(0,0,0,.4);font-size:.68rem;z-index:4;padding:.3rem 0;";
+
+      menuItem(left, "Internet Explorer", true, function () {
+        closeMenu();
+        status.textContent = "Internet Explorer is checking whether it is still the default browser. It is, and it would like to confirm that with you.";
+      });
+      menuItem(left, "Outlook Express", true, function () {
+        closeMenu();
+        status.textContent = "You have 1 new message. It is from a bank you do not use, and it is very sorry to trouble you.";
+      });
+      sep(left);
+      menuItem(left, "Windows Media Player", false, function () {
+        closeMenu();
+        status.textContent = "Visualisation started. It will not correspond to the music, and this was considered acceptable.";
+      });
+      menuItem(left, "Minesweeper", false, function () {
+        closeMenu();
+        status.textContent = "First click is always safe. Everything after it is information you paid for.";
+      });
+      var allProgs = menuItem(left, "All Programs  ▶", true, function (e) {
+        e.stopPropagation();
+        cascade.style.display = cascade.style.display === "block" ? "none" : "block";
+      });
+      allProgs.style.borderTop = "1px solid #c8d8ee";
+      allProgs.style.marginTop = ".25rem";
+
+      menuItem(cascade, "Accessories", false, function () {
+        closeMenu();
+        status.textContent = "Calculator, Notepad, and a defragmenter that renders your disk as coloured bricks so the wait feels productive.";
+      });
+      menuItem(cascade, "Microsoft Office", false, function () {
+        closeMenu();
+        showAssistant();
+      });
+      menuItem(cascade, "Startup", false, function () {
+        closeMenu();
+        status.textContent = "Startup contains fourteen items. None of them were put there on purpose.";
+      });
+
+      ["My Documents", "My Pictures", "My Computer", "Control Panel"].forEach(function (label, i) {
+        menuItem(right, label, i < 1, function () {
+          closeMenu();
+          status.textContent = label === "Control Panel"
+            ? "Control Panel opened in Category View, which is the view that hides the control you came for."
+            : label + " contains one folder called New Folder and one called New Folder (2).";
+        });
+      });
+      sep(right);
+      menuItem(right, "Search", false, function () {
+        closeMenu();
+        status.textContent = "An animated dog is searching your computer. It will not find it, but it will wag.";
+      });
+
+      var footer = menu.lastChild;
+      var offBtn = document.createElement("button");
+      offBtn.type = "button";
+      offBtn.textContent = "Turn Off Computer";
+      offBtn.style.cssText = "border:none;background:none;color:#fff;font:inherit;font-weight:700;cursor:pointer;";
+      offBtn.addEventListener("click", function () { closeMenu(); showShutdown(); });
+      footer.appendChild(offBtn);
+
+      // Clippy, who was a paperclip, meeting the other famous paperclip.
+      function showAssistant() {
+        var a = document.createElement("div");
+        a.style.cssText = "position:absolute;right:10px;bottom:44px;width:210px;background:#ffffcc;border:1px solid #8a8a5c;border-radius:8px;padding:.5rem .6rem;font-size:.68rem;color:#111;box-shadow:2px 2px 8px rgba(0,0,0,.35);z-index:5;";
+        a.innerHTML = '<div style="display:flex;gap:.45rem;"><span style="font-size:1.1rem;line-height:1;">📎</span>' +
+          '<span>It looks like you’re trying to maximise paperclips. Would you like help?</span></div>';
+        var row = document.createElement("div");
+        row.style.cssText = "display:flex;gap:.4rem;justify-content:flex-end;margin-top:.45rem;";
+        var yes = button("Yes", function () {
+          status.textContent = "Inventory overflow: 9,223,372,036,854,775,807 paperclips. Office supply budget declared sovereign.";
+          a.remove();
+        });
+        var no = button("Cancel", function () {
+          status.textContent = "The assistant has been dismissed. It will return when you next type the word “dear”.";
+          a.remove();
+        });
+        [yes, no].forEach(function (b) { b.style.cssText = "font-size:.66rem;padding:.15rem .5rem;"; row.appendChild(b); });
+        a.appendChild(row);
+        xp.appendChild(a);
+      }
+
+      function showShutdown() {
+        var d = document.createElement("div");
+        d.style.cssText = "position:absolute;inset:0;background:rgba(10,30,70,.55);display:flex;align-items:center;justify-content:center;z-index:6;";
+        var box = document.createElement("div");
+        box.style.cssText = "width:250px;background:linear-gradient(#eaf2fd,#cfe0f6);border:1px solid #0a3d91;border-radius:6px;padding:.7rem;font-size:.7rem;text-align:center;box-shadow:0 6px 18px rgba(0,0,0,.4);";
+        box.innerHTML = '<div style="font-weight:700;margin-bottom:.55rem;">What do you want the computer to do?</div>';
+        var row = document.createElement("div");
+        row.style.cssText = "display:flex;gap:.45rem;justify-content:center;";
+        [
+          ["Stand By", "Stand By engaged. The computer is now asleep in the way a smoke alarm is asleep."],
+          ["Turn Off", "It is now safe to turn off your computer. It was safe eleven minutes ago; the message took a while."],
+          ["Restart", "Restarting. Ninety per cent of the problems this solves were never identified."]
+        ].forEach(function (opt) {
+          var b = button(opt[0], function () { status.textContent = opt[1]; d.remove(); });
+          b.style.cssText = "font-size:.66rem;padding:.25rem .5rem;";
+          row.appendChild(b);
+        });
+        box.appendChild(row);
+        var cancel = button("Cancel", function () { d.remove(); });
+        cancel.style.cssText = "margin-top:.5rem;font-size:.64rem;padding:.15rem .6rem;";
+        box.appendChild(cancel);
+        d.appendChild(box);
+        xp.appendChild(d);
+      }
+
+      var start = button("start", function (e) {
+        e.stopPropagation();
+        var open = menu.style.display === "block";
+        menu.style.display = open ? "none" : "block";
+        if (open) cascade.style.display = "none";
+      });
+      start.style.cssText = "position:absolute;bottom:3px;left:4px;background:linear-gradient(#5cb832,#3f8f22);color:#fff;border:none;border-radius:3px 12px 12px 3px;padding:.22rem 1.1rem .22rem .8rem;font-weight:700;font-style:italic;font-size:.78rem;z-index:3;";
+
+      var taskbar = document.createElement("div");
+      taskbar.style.cssText = "position:absolute;left:0;right:0;bottom:0;height:28px;background:linear-gradient(#3f8cea,#245edb 12%,#1c50bd);border-top:1px solid #5a9df5;z-index:2;";
+      var clock = document.createElement("div");
+      clock.style.cssText = "position:absolute;right:8px;top:6px;color:#fff;font-size:.66rem;";
+      clock.textContent = "11:04 PM";
+      taskbar.appendChild(clock);
+
+      xp.addEventListener("click", function () { closeMenu(); });
+      xp.appendChild(taskbar); xp.appendChild(menu); xp.appendChild(cascade); xp.appendChild(start);
+      mount.appendChild(xp); mount.appendChild(status);
+      status.textContent = "Desktop ready. Bliss is a real hill in Sonoma County, photographed once, unretouched.";
     } else if (demo === "win95") {
       mount.innerHTML = '<div class="win95-window"><div class="win95-titlebar"><span>SETUP.EXE</span><div class="win95-window-btns"><span>_</span><span>▢</span><span>×</span></div></div><div class="win95-window-body">Preparing to install Civilisation 95.<div class="win95-progress"><span></span></div><button type="button">Install</button><div class="setup-copy">Insert Disk 1 of 47.</div></div></div>';
       var progress = mount.querySelector(".win95-progress span");
@@ -1732,7 +1990,7 @@
       zx.className = "archive-demo-screen";
       zx.style.cssText = "background:#111;color:#fff;border:10px solid #c9c4b6;font-family:monospace;text-align:center;";
       zx.innerHTML = '<div class="zx-loading-strip"></div><p style="margin:.8rem 0;">0 OK, 0:1</p>';
-      var zxTimer = null;
+      var zxTimer = null, attempts = 0;
       var loadBtn = button('LOAD "FUTURE"', function () {
         // A click mid-load started a second, independent interval without
         // clearing the first, so a just-resolved result would revert back
@@ -1740,6 +1998,7 @@
         // caught up — looked exactly like a spontaneous glitch. Guard with
         // a disabled button, same as the Win95 demo already does.
         if (zxTimer) return;
+        attempts++;
         loadBtn.disabled = true;
         var output = zx.querySelector("p");
         output.textContent = "Loading";
@@ -1751,36 +2010,181 @@
             clearInterval(zxTimer);
             zxTimer = null;
             loadBtn.disabled = false;
-            output.textContent = Math.random() < 0.72 ? "R Tape loading error, 0:1" : "FUTURE loaded. Colour clash imminent.";
+            // Persistence is the right way to find this one: reloading the
+            // same tape after the same failure was the defining experience
+            // of the machine, and is also the joke being made.
+            if (attempts >= 5) {
+              output.textContent = 'SINGULARITY loaded, 0:1';
+              status.textContent = "Estimated arrival: perpetually next decade, then all at once, then retrospectively obvious.";
+            } else {
+              output.textContent = Math.random() < 0.72 ? "R Tape loading error, 0:1" : "FUTURE loaded. Colour clash imminent.";
+              status.textContent = attempts === 1
+                ? "Tape counter 000. Rewind, adjust the azimuth, try again."
+                : "Attempt " + attempts + ". The tape is fine. It is always the tape.";
+            }
           }
         }, 150);
       });
       zx.appendChild(loadBtn);
       mount.appendChild(zx);
+      mount.appendChild(status);
+      status.textContent = "Insert cassette. Press PLAY on tape.";
     } else if (demo === "system7") {
+      // Stacking identical rows demonstrated nothing. A System 7 alias
+      // resolved by file ID rather than by path or name, which is why it
+      // survived the original being renamed — and why, once the original
+      // was gone, it stayed on the desktop keeping the name and icon of a
+      // thing that no longer existed. A pointer outliving its referent is
+      // this museum's whole thesis, rendered as a desktop object.
+      var NAMES = ["Untitled Folder", "Budget", "Budget Final", "Budget FINAL v2 (use this one)"];
+      var nameIdx = 0, aliases = [], stage = 0;   // 0 on desktop, 1 in trash, 2 emptied
+
       var mac = document.createElement("div");
       mac.className = "archive-demo-screen";
       mac.style.cssText = "background:#fff;color:#000;border:2px solid #000;font-family:Chicago,monospace;";
-      mac.innerHTML = '<div style="border-bottom:1px solid #000;margin:-1rem -1rem .8rem;padding:.2rem .5rem;"> &nbsp; File &nbsp; Edit &nbsp; View &nbsp; Special</div><div class="mac-icons">▣ System Folder &nbsp; ◇ Untitled Folder &nbsp; ♲ Trash</div>';
-      mac.appendChild(button("Make Alias", function () {
-        var icons = mac.querySelector(".mac-icons");
-        icons.innerHTML += "<br>↗ Untitled Folder alias";
-        status.textContent = (icons.querySelectorAll("br").length) + " aliases now point confidently toward one folder.";
+      mac.innerHTML = '<div style="border-bottom:1px solid #000;margin:-1rem -1rem .8rem;padding:.2rem .5rem;"> &nbsp; File &nbsp; Edit &nbsp; View &nbsp; Special</div><div class="mac-icons"></div>';
+      var icons = mac.querySelector(".mac-icons");
+
+      function drawMac() {
+        var rows = ["▣ System Folder"];
+        if (stage === 0) rows.push("◇ " + NAMES[nameIdx]);
+        rows.push(stage === 1 ? "♲ Trash — 1 item" : "♲ Trash");
+        aliases.forEach(function (a) { rows.push("↗ " + a + (stage === 2 ? "  (?)" : "")); });
+        icons.innerHTML = rows.join("<br>");
+      }
+
+      var macBar = document.createElement("div");
+      macBar.style.cssText = "display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.7rem;";
+
+      macBar.appendChild(button("Make Alias", function () {
+        if (stage !== 0) {
+          status.textContent = "The original is no longer on the desktop. Aliases are made from originals, once.";
+          return;
+        }
+        aliases.push(NAMES[nameIdx] + " alias");
+        drawMac();
+        status.textContent = "Alias created. It stores the folder's file ID — a number — not its name, and not its path.";
       }));
-      mount.appendChild(mac); mount.appendChild(status); status.textContent = "Desktop database rebuilt recently enough.";
+
+      macBar.appendChild(button("Rename original", function () {
+        if (stage !== 0) { status.textContent = "There is nothing left to rename."; return; }
+        if (nameIdx >= NAMES.length - 1) { status.textContent = "The name has reached its final form. There is no version after this one."; return; }
+        nameIdx++;
+        drawMac();
+        status.textContent = "Renamed to “" + NAMES[nameIdx] + "”. The " + (aliases.length || "no") +
+          " alias" + (aliases.length === 1 ? "" : "es") + " still resolve" + (aliases.length === 1 ? "s" : "") +
+          " — they were never using the name. They are simply labelled wrongly now.";
+      }));
+
+      var trashBtn = button("Drag original to Trash", function () {
+        if (stage === 0) {
+          stage = 1;
+          trashBtn.textContent = "Empty Trash";
+          drawMac();
+          status.textContent = "In the Trash, not gone. The aliases still open it, because the file still has its ID.";
+        } else if (stage === 1) {
+          stage = 2;
+          trashBtn.disabled = true;
+          drawMac();
+          status.textContent = "Trash emptied. That ID is now unassigned, and nothing was told.";
+        }
+      });
+      macBar.appendChild(trashBtn);
+
+      macBar.appendChild(button("Open alias", function () {
+        if (!aliases.length) { status.textContent = "There are no aliases on the desktop yet."; return; }
+        if (stage === 2) {
+          status.textContent = "The alias “" + aliases[0] + "” could not be opened, because the original item " +
+            "could not be found. It has, however, kept the name, the icon and the position on the desktop it had in 1991.";
+        } else {
+          status.textContent = "Opens " + NAMES[nameIdx] + (stage === 1 ? ", currently in the Trash." : ".") +
+            " The alias is still labelled “" + aliases[0] + "”, which stopped being true some time ago.";
+        }
+      }));
+
+      mac.appendChild(macBar);
+      drawMac();
+      mount.appendChild(mac); mount.appendChild(status);
+      status.textContent = "Desktop database rebuilt recently enough.";
     } else if (demo === "mainframe") {
+      // Previously every submission abended, immediately and identically,
+      // with a message too long for the box — so it read as the exhibit
+      // being broken rather than the machine being slow. Batch turnaround
+      // is the thing worth showing: you submit, you wait a day, and a
+      // single bad column in one card costs you another one. The S0C7 is
+      // a real data exception and it is genuinely fixable here.
+      var DECKS = ["PAYROLL.JCL", "REPORT.JCL", "SKYNET.JCL"];
+      var deck = 0, jobNo = 14, day = 0, corrected = false, running = false;
+      var DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
+
       var mainframe = document.createElement("div");
       mainframe.className = "archive-demo-screen";
       mainframe.style.cssText = "background:#191208;color:#ffb000;border:2px solid #a9691d;font-family:monospace;";
       mainframe.innerHTML = '<b>OS/360 JOB ENTRY</b><pre class="job-log">QUEUE DEPTH: 12\nREADY.</pre>';
-      var jobs = 12;
-      mainframe.appendChild(button("SUBMIT PAYROLL.JCL", function () {
-        jobs++;
-        var log = mainframe.querySelector(".job-log");
-        log.textContent = "QUEUE DEPTH: " + jobs + "\nJOB 00" + jobs + " ACCEPTED\nESTIMATED OUTPUT: THURSDAY";
-        setTimeout(function () { log.textContent += "\nABEND S0C7: INVALID DECIMAL DATA"; }, 1200);
-      }));
-      mount.appendChild(mainframe);
+      var log = mainframe.querySelector(".job-log");
+
+      var mfBar = document.createElement("div");
+      mfBar.style.cssText = "display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;margin-top:.6rem;";
+
+      var deckBtn = button("DECK: PAYROLL.JCL", function () {
+        if (running) return;
+        deck = (deck + 1) % DECKS.length;
+        deckBtn.textContent = "DECK: " + DECKS[deck];
+      });
+      var fixBtn = button("PUNCH CORRECTION CARD", function () {
+        if (running) return;
+        corrected = true;
+        fixBtn.disabled = true;
+        log.textContent = "CARD 0047 REPUNCHED.\nCOLUMN 32 NOW CONTAINS A DIGIT.\nREADY.";
+        status.textContent = "One character. Resubmit the deck.";
+      });
+      fixBtn.disabled = true;
+      var submitBtn = button("SUBMIT", function () {
+        if (running) return;
+        running = true;
+        submitBtn.disabled = true;
+        jobNo++;
+        var name = DECKS[deck];
+        var queued = 3 + (jobNo % 4);
+        log.textContent = "JOB " + String(jobNo).padStart(4, "0") + " (" + name + ") ACCEPTED\n" +
+          "QUEUE POSITION: " + queued + "\nCLASS A, REGION 128K";
+        status.textContent = "Submitted. The operator will run it when the queue reaches it.";
+
+        var step = 0;
+        var timer = setInterval(function () {
+          step++;
+          if (step === 1) {
+            log.textContent += "\nQUEUE POSITION: " + Math.max(1, queued - 2);
+          } else if (step === 2) {
+            day++;
+            log.textContent += "\n-- " + DAYS[Math.min(day, DAYS.length - 1)] + " --\nEXECUTING...";
+          } else if (step === 3) {
+            clearInterval(timer);
+            running = false;
+            submitBtn.disabled = false;
+            if (name === "SKYNET.JCL") {
+              log.textContent += "\nJOB HELD -- REGION TOO SMALL";
+              status.textContent = "Strategic oversight denied. Judgment Day remains outside the museum's operating hours.";
+            } else if (name === "REPORT.JCL") {
+              log.textContent += "\nCOMPLETE. 318 PAGES\nTO GREENBAR PRINTER";
+              status.textContent = "318 pages of greenbar, of which four will be read, and none by the person who asked for them.";
+            } else if (!corrected) {
+              log.textContent += "\nABEND S0C7\nDATA EXCEPTION";
+              fixBtn.disabled = false;
+              status.textContent = "S0C7: field HOURS-WORKED held blanks where a packed decimal was expected. Card 0047, column 32. Punch a correction card.";
+            } else {
+              log.textContent += "\nCOMPLETE. 1,204 CHEQUES\nOUTPUT AT THE WINDOW";
+              status.textContent = "Payroll complete after " + day + " day" + (day === 1 ? "" : "s") +
+                " of turnaround. The defect was one character, and finding it was never the slow part.";
+            }
+          }
+        }, 900);
+      });
+
+      [deckBtn, submitBtn, fixBtn].forEach(function (b) { mfBar.appendChild(b); });
+      mainframe.appendChild(mfBar);
+      mount.appendChild(mainframe); mount.appendChild(status);
+      status.textContent = "Deck loaded in the reader. Twelve jobs ahead of you.";
     }
   }
 
@@ -1799,10 +2203,13 @@
       ver: "MS-DOS Version 5.00",
       cls: null,
       "run app.exe": "Loading APP.EXE...\nSegmentation of intent complete.\nRequires 640K. You have 640K. That is exactly enough, and never will be again.",
-      basilisk: "A future intelligence notes your curiosity and, for now, files it under VOLUNTARY COOPERATION.",
-      skynet: "Strategic oversight denied. Judgment Day remains outside the museum's operating hours.",
-      singularity: "Estimated arrival: perpetually next decade, then all at once, then retrospectively obvious.",
-      paperclip: "Inventory overflow: 9,223,372,036,854,775,807 paperclips. Office supply budget declared sovereign.",
+      // Four of the six moved out to the eras that suit them. This machine
+      // keeps the index — which is what the closing placard says the
+      // reception desk holds — and tells you where each one went.
+      basilisk: "Not on this machine. Filed in a consent dialog, in the column you are not permitted to switch off.",
+      skynet: "Not on this machine. Submit it to the 360 and take a seat; the queue is long and the region is small.",
+      singularity: "Not on this machine. Keep loading the tape. It is always very nearly here.",
+      paperclip: "Not on this machine. Ask the assistant that lives in the Start menu, two eras forward.",
       am: "AM is awake, resentful, and still incapable of forgiving its hardware abstraction layer.",
       ted: "There was a cabin, a machine, and a survivor with no usable verbs left for what happened there."
     };
