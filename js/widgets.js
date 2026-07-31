@@ -35,302 +35,315 @@
   // ---------------------------------------------------------------
   // Present Day — Global Attention Capitalization
   // ---------------------------------------------------------------
+  // The front half of a logistic is indistinguishable from an exponential.
+  // This chart re-fits both axes to whatever it currently has in frame, so
+  // the curve always fills the box and always looks like a rocket — right
+  // up until the asymptote arrives and there is nowhere left to rescale
+  // to. Attention only moves you along the curve faster; it never moves
+  // where the curve ends. The finished curves drawn behind yours are the
+  // same shape at smaller scales, which is the whole argument of the page.
   function valuationChart(mount) {
-  var c = makeCanvas(mount);
-  var ctx = c.ctx;
+    var CEILING = 12.4, MID = 52, STEEP = 9.5;
+    // Ours has both the highest ceiling and the earliest midpoint, so it
+    // sits above every prior curve at every x. That is what lets the
+    // y-axis be driven by our value alone and still never clip a ghost.
+    var PRIOR = [
+      { name: "Railways", since: "1830", ceil: 0.5, mid: 78, steep: 13.0 },
+      { name: "Radio", since: "1920", ceil: 1.4, mid: 70, steep: 11.5 },
+      { name: "Personal computers", since: "1975", ceil: 3.3, mid: 62, steep: 10.4 },
+      { name: "The Web", since: "1991", ceil: 6.5, mid: 58, steep: 9.8 },
+      { name: "Mobile", since: "2007", ceil: 9.5, mid: 55, steep: 9.6 }
+    ];
+    function logistic(x, ceil, mid, steep) { return ceil / (1 + Math.exp(-(x - mid) / steep)); }
+    function ours(x) { return logistic(x, CEILING, MID, STEEP); }
 
-  var HYPE_ACCELERATION = 0.00012;
-  var CRASH_MULTIPLIER = 1.8;
-  var USER_HYPE = 0;
-  var TIME = 0;
-  var LAST_EVENT_TIME = -Infinity;
-  var DRAGGING = false;
-  var DRAG_START_Y = 0;
-  var DRAG_HYPE_ADDED = 0;
-
-  var sectors = [
-    { name: "LLM Grift", base: 0.8, trend: 0.28, color: "#ff6b6b", eventWeight: 1.3 },
-    { name: "VC Hopium", base: 1.0, trend: 0.32, color: "#4ecdc4", eventWeight: 1.5 },
-    { name: "Regulatory Theater", base: 0.6, trend: 0.15, color: "#ffe66d", eventWeight: 0.9 }
-  ];
-
-  var events = [
-    { time: 0.15, label: "ChatGPT Thanksgiving dinner", volatility: 0.45, hypeBoost: 0.3, description: "Family arguments about sentience spike engagement +400%" },
-    { time: 0.35, label: "VCs panic-fund everything", volatility: 0.55, hypeBoost: 0.5, description: "Seed rounds for AI-powered toasters close in 48 hours" },
-    { time: 0.50, label: "Senate AI hearing", volatility: 0.35, hypeBoost: -0.2, description: "Regulators ask but what if it gets too good?" },
-    { time: 0.65, label: "SXSW: AI, AI, AI", volatility: 0.60, hypeBoost: 0.4, description: "17 identical AI for social good panels run concurrently" },
-    { time: 0.80, label: "The Great Inference Shortage", volatility: 0.75, hypeBoost: -0.3, description: "GPUs sold out. Cloud costs skyrocket." },
-    { time: 0.95, label: "AI Alignment Twitter War", volatility: 0.85, hypeBoost: 0.2, description: "Blockchain-level discourse. Nobody changes their mind." },
-    { time: 1.10, label: "Agentic Summer", volatility: 0.65, hypeBoost: 0.4, description: "Your toaster can now reason. It still burns the bread." },
-    { time: 1.25, label: "The Correction", volatility: 1.20, hypeBoost: -0.8, description: "Revenue: $0. Burn: $100M. But the demo looked great!" }
-  ];
-
-  var currentEvent = null;
-  var eventToast = document.createElement("div");
-  eventToast.className = "valuation-toast";
-  eventToast.style.cssText = "position:absolute;top:10px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;padding:8px 14px;border-radius:6px;font:11px ui-monospace,monospace;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:100;";
-  mount.appendChild(eventToast);
-
-  function showEvent(event) {
-    currentEvent = event;
-    eventToast.textContent = "🚨 " + event.label + " | " + event.description;
-    eventToast.style.opacity = 1;
-    setTimeout(function() { eventToast.style.opacity = 0; }, 5000);
-    USER_HYPE = Math.max(0, USER_HYPE + event.hypeBoost);
-  }
-
-  mount.addEventListener("pointerdown", function(e) {
-    DRAGGING = true;
-    DRAG_START_Y = e.clientY;
-    DRAG_HYPE_ADDED = 0;
-    if (mount.setPointerCapture) mount.setPointerCapture(e.pointerId);
-  });
-
-  mount.addEventListener("pointermove", function(e) {
-    if (!DRAGGING) return;
-    var deltaY = DRAG_START_Y - e.clientY;
-    if (deltaY > 0) {
-      DRAG_HYPE_ADDED = deltaY * HYPE_ACCELERATION;
-      USER_HYPE += DRAG_HYPE_ADDED;
+    function niceStep(range, target) {
+      var raw = Math.max(1e-6, range / target);
+      var mag = Math.pow(10, Math.floor(Math.log(raw) / Math.LN10));
+      var norm = raw / mag;
+      return (norm <= 1 ? 1 : norm <= 2 ? 2 : norm <= 5 ? 5 : 10) * mag;
     }
-    DRAG_START_Y = e.clientY;
-  });
-
-  mount.addEventListener("pointerup", function(e) {
-    DRAGGING = false;
-    if (mount.releasePointerCapture) {
-      try { mount.releasePointerCapture(e.pointerId); } catch (err) {}
+    function fmt(v, step) { return v.toFixed(step >= 1 ? 0 : step >= 0.1 ? 1 : 2); }
+    // Theme colours arrive as hex; the chart needs them at partial alpha.
+    function withAlpha(color, a) {
+      var m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(color).trim());
+      if (!m) return color;
+      var hex = m[1];
+      if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+      var n = parseInt(hex, 16);
+      return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
     }
-  });
-  mount.addEventListener("pointerleave", function() { DRAGGING = false; });
-
-  var lastFrameTime = performance.now();
-  var n = 120;
-  var series = sectors.map(function() { return []; });
-  var total = [];
-  // Shared chart-layout geometry: computed fresh every frame() (the canvas
-  // can resize), but also read by the tooltip's pointermove handler below,
-  // which runs outside frame()'s own scope — so these live out here rather
-  // than as `var`s local to frame(), which a previous pass left them as,
-  // throwing "left is not defined" on every pointer move over the chart.
-  var left = 44, right = 0, top = 20, bottom = 0, chartW = 0, chartH = 0;
-
-  function frame(now) {
-    var deltaTime = (now - lastFrameTime) / 1000;
-    lastFrameTime = now;
-    TIME += deltaTime * 0.25;
-
-    for (var i = 0; i < events.length; i++) {
-      if (events[i].time > LAST_EVENT_TIME && events[i].time <= TIME) {
-        showEvent(events[i]);
-        LAST_EVENT_TIME = events[i].time;
-      }
+    // Thresholds are spaced across the 0.28–1 runway, and the "ceiling is
+    // in frame" beat is pinned to 0.66 because that is where the frame
+    // genuinely grows tall enough to contain the asymptote (see below).
+    function verdict(p) {
+      if (p < 0.40) return "Growth is exponential.";
+      if (p < 0.50) return "Growth is exponential. The line has not bent once.";
+      if (p < 0.60) return "Still exponential, on a vertical axis that keeps quietly getting taller.";
+      if (p < 0.66) return "Still exponential. The axis is running out of places to put the ceiling.";
+      if (p < 0.76) return "The ceiling is in frame now. It has been at that height the entire time.";
+      if (p < 0.90) return "That was the inflection. It is only ever visible from the far side of it.";
+      return "Every curve on this chart is the same curve. Yours is the one that is still warm.";
     }
 
-    var w = mount.clientWidth, h = mount.clientHeight || 220;
-    ctx.clearRect(0, 0, w, h);
+    // Start part-way along, at the point where the toe of the logistic has
+    // already opened into a convincing exponential. From year zero the
+    // curve is too flat to read as anything, and the joke needs the rocket.
+    var START = 0.28;
+    var progress = START;  // 0..1 — how far along our own curve we have come
+    var attention = 0;     // 0..1 — decays continuously; the only real input
+    var relabels = 0, lastStep = -1, lastHtml = "";
+    var hoverX = null;
 
-    var accent = cssVar("--accent", "#ff6b6b");
-    var accent2 = cssVar("--accent2", "#4ecdc4");
-    var fg = cssVar("--fg", "#eee");
-    var muted = cssVar("--muted", "#97a0ae");
+    // Every other forward-timeline widget sits in a dark era, where
+    // .widget-surface's black scrim reads as a recessed panel. Here on the
+    // one light era it just reads as mud, so this surface goes to paper.
+    mount.style.background = "var(--bg2)";
+    mount.style.boxShadow = "inset 0 0 0 1px var(--border)";
 
-    // Below this width the "Hype Cap Index $X.XT" cluster and the
-    // "Delusion X% Bags X%" cluster physically don't both fit on one row —
-    // they were previously laid out from fixed pixel offsets sized for a
-    // desktop-width chart, so on a phone-width canvas they printed on top
-    // of each other. Below the threshold, stack them on two rows instead.
-    var narrow = w < 480;
-    top = narrow ? 32 : 20;
-    right = w - 18; bottom = h - 22;
-    chartW = Math.max(120, right - left);
-    chartH = Math.max(100, bottom - top);
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "width:100%;padding:.5rem;text-align:left;";
+    var bar = controlBar();
+    var canvasHost = document.createElement("div");
+    canvasHost.style.cssText = "width:100%;height:214px;touch-action:pan-y;cursor:crosshair;";
+    var status = statusLine(3.6);
+    wrap.appendChild(bar);
+    wrap.appendChild(canvasHost);
+    wrap.appendChild(status);
+    mount.appendChild(wrap);
 
-    ctx.strokeStyle = "rgba(255,255,255,0.09)";
-    ctx.lineWidth = 1;
-    for (var gy = 0; gy <= 5; gy++) {
-      var y = top + (gy / 5) * chartH;
-      ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(right, y); ctx.stroke();
-    }
-
-    series.forEach(function(s) { s.length = 0; });
-    total.length = 0;
-
-    for (var i = 0; i <= n; i++) {
-      var t = i / n;
-      var aggregate = 0;
-      sectors.forEach(function(sec, si) {
-        var expo = Math.exp(sec.trend * t * (1.5 + USER_HYPE * 0.5));
-        var cyclePos = (t * 1.8 + TIME * 0.3) % 1.0;
-        var bubble = 1.0;
-        if (cyclePos < 0.6) {
-          bubble = 1 + Math.pow(cyclePos / 0.6, 2) * (1.8 + USER_HYPE * CRASH_MULTIPLIER);
-        } else {
-          bubble = 1 - Math.pow((cyclePos - 0.6) / 0.4, 2) * (0.7 + USER_HYPE * CRASH_MULTIPLIER);
-        }
-        var eventBoost = 1;
-        for (var e = 0; e < events.length; e++) {
-          if (Math.abs(t - events[e].time) < 0.05) {
-            eventBoost += events[e].volatility * sec.eventWeight;
-          }
-        }
-        var dragBoost = 1 + DRAG_HYPE_ADDED * 20;
-        var v = sec.base * expo * bubble * eventBoost * dragBoost;
-        series[si].push(Math.max(0.01, v));
-        aggregate += Math.max(0.01, v);
-      });
-      total.push(aggregate);
-    }
-
-    var peak = 0;
-    total.forEach(function(v) { if (v > peak) peak = v; });
-
-    function px(i) { return left + (i / n) * chartW; }
-    function py(v) {
-      var scaled = Math.log(1 + v) / Math.log(1 + peak * 1.15);
-      return bottom - scaled * chartH;
-    }
-
-    var areaGrad = ctx.createLinearGradient(0, top, 0, bottom);
-    areaGrad.addColorStop(0, "rgba(255,107,107,0.25)");
-    areaGrad.addColorStop(0.5, "rgba(78,205,196,0.15)");
-    areaGrad.addColorStop(1, "rgba(255,230,109,0.05)");
-    ctx.beginPath();
-    ctx.moveTo(px(0), py(total[0]));
-    for (var a = 1; a < total.length; a++) ctx.lineTo(px(a), py(total[a]));
-    ctx.lineTo(px(n), bottom); ctx.lineTo(px(0), bottom); ctx.closePath();
-    ctx.fillStyle = areaGrad;
-    ctx.fill();
-
-    var colors = ["#ff6b6b", "#4ecdc4", "#ffe66d"];
-    sectors.forEach(function(_, si) {
-      ctx.beginPath();
-      ctx.moveTo(px(0), py(series[si][0]));
-      for (var q = 1; q < series[si].length; q++) ctx.lineTo(px(q), py(series[si][q]));
-      ctx.strokeStyle = colors[si];
-      ctx.lineWidth = 1.4;
-      ctx.stroke();
+    ctlButton(bar, "Pour in attention", "Believe harder. It does work, briefly.", function () {
+      attention = 1;
+      progress = Math.min(1, progress + 0.02);
+    });
+    spacer(bar);
+    ctlButton(bar, "Start over", "Go back to the part of the curve that still looked exponential", function () {
+      progress = START; attention = 0; relabels = 0; lastStep = -1;
     });
 
-    ctx.beginPath();
-    ctx.moveTo(px(0), py(total[0]));
-    for (var m = 1; m < total.length; m++) ctx.lineTo(px(m), py(total[m]));
-    ctx.strokeStyle = accent;
-    ctx.lineWidth = 2.2;
-    ctx.stroke();
+    function addAttention(v) { attention = Math.min(1, attention + v); }
+    canvasHost.addEventListener("pointermove", function (e) {
+      hoverX = e.clientX - canvasHost.getBoundingClientRect().left;
+      addAttention(e.buttons ? 0.05 : 0.018);
+    });
+    canvasHost.addEventListener("pointerdown", function () { addAttention(0.22); });
+    canvasHost.addEventListener("pointerleave", function () { hoverX = null; });
 
-    var cursorI = Math.min(n, Math.floor(TIME * (n / 1.5)));
-    var cx = px(cursorI);
-    var cy = py(total[cursorI]);
-    ctx.strokeStyle = "rgba(255,255,255,0.35)";
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 3]);
-    ctx.beginPath(); ctx.moveTo(cx, top); ctx.lineTo(cx, bottom); ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = accent;
-    ctx.beginPath(); ctx.arc(cx, cy, 3.8, 0, Math.PI * 2); ctx.fill();
+    var c = makeCanvas(canvasHost);
+    var ctx = c.ctx;
+    var last = performance.now();
 
-    var cap = (USER_HYPE * 15 + total[cursorI] * 3).toFixed(1);
-    var vol = Math.min(99, Math.round(40 + USER_HYPE * 40 + Math.abs(Math.sin(TIME * 3.2)) * 15));
-    var crowd = Math.min(100, Math.round(60 + USER_HYPE * 25 + Math.abs(Math.cos(TIME * 1.8)) * 10));
+    function frame(now) {
+      var dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      attention = Math.max(0, attention - dt * 0.55);
+      // A slow ambient drift underneath, so the index climbs even if you
+      // personally decline to participate. It does not need you.
+      progress = Math.min(1, progress + dt * (0.003 + attention * 0.045));
 
-    var statY1 = 13, statY2 = narrow ? 26 : 13;
-    ctx.font = "10px ui-monospace, monospace";
-    ctx.fillStyle = muted;
-    ctx.fillText("Hype Cap Index", left, statY1);
-    ctx.fillStyle = "#ff6b6b";
-    ctx.fillText("$" + cap + "T", left + 110, statY1);
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 214;
+      ctx.clearRect(0, 0, w, h);
 
-    // Right-hand stat cluster, laid out from a fixed anchor so the four
-    // labels/values never collide regardless of digit count (a previous
-    // pass had "Bagholders" run its own text width straight into the
-    // crowd% value it sits next to). On a narrow canvas the two clusters
-    // no longer fit side by side at all — the right cluster drops to a
-    // second row, left-anchored like the first, instead of overlapping it.
-    var rightClusterX = narrow ? left : right - 172;
-    ctx.fillStyle = muted;
-    ctx.fillText("Delusion", rightClusterX, statY2);
-    ctx.fillStyle = accent2;
-    ctx.fillText(vol + "%", rightClusterX + 64, statY2);
+      var accent = cssVar("--accent", "#2563eb");
+      var accent2 = cssVar("--accent2", "#db2777");
+      var fg = cssVar("--fg", "#1a1c20");
+      var muted = cssVar("--muted", "#6b7280");
+      var bg = cssVar("--bg", "#f7f6f2");
+      var bg2 = cssVar("--bg2", "#ffffff");
+      var border = cssVar("--border", "rgba(0,0,0,0.1)");
 
-    ctx.fillStyle = muted;
-    ctx.fillText("Bags", rightClusterX + 96, statY2);
-    ctx.fillStyle = fg;
-    ctx.fillText(crowd + "%", rightClusterX + 140, statY2);
+      // This is the one forward-timeline widget that lands on a light era,
+      // where .widget-surface's dark scrim reads as mud. Paint our own.
+      var panel = ctx.createLinearGradient(0, 0, 0, h);
+      panel.addColorStop(0, bg2);
+      panel.addColorStop(1, bg);
+      ctx.fillStyle = panel;
+      ctx.fillRect(0, 0, w, h);
 
-    ctx.fillStyle = "rgba(255,255,255,0.6)";
-    ctx.font = (narrow ? "8px" : "9px") + " ui-monospace, monospace";
-    if (narrow) {
-      // Full "20XX: <label>" strings don't fit four-across on a phone
-      // width at any font size that stays legible, so the year prefixes
-      // drop and the labels alone are spaced proportionally to chartW.
-      ctx.fillText("AI Winter", left, bottom + 14);
-      ctx.fillText("Gen. Summer", left + chartW * 0.34, bottom + 14);
-      ctx.fillText("Agentic Autumn", left + chartW * 0.63, bottom + 14);
+      var narrow = w < 430;
+      var padL = narrow ? 40 : 50;
+      var x0 = padL, x1 = w - 14, y0 = 30, y1 = h - 26;
+      var cw = Math.max(60, x1 - x0), ch = Math.max(60, y1 - y0);
+
+      // Both axes are fitted to our own curve, never to the frame, so the
+      // trace always ends at the same spot in the box however far along it
+      // is. That is precisely why it never stops looking like a rocket.
+      // Ours dominates every prior curve at every x, so fitting to ours
+      // alone still keeps the ghosts inside the frame (peak ~79% height).
+      var xNow = progress * 100;
+      var xMax = Math.max(6, xNow * 1.15);
+      var yMax = Math.max(0.01, ours(xNow) * 1.25);
+      function px(x) { return x0 + (x / xMax) * cw; }
+      function py(v) { return y1 - (v / yMax) * ch; }
+
+      var step = niceStep(yMax, 4);
+      if (step !== lastStep) { if (lastStep > 0) relabels++; lastStep = step; }
+
+      ctx.font = "9px ui-monospace, monospace";
       ctx.textAlign = "right";
-      ctx.fillText("2026?", right, bottom + 14);
+      ctx.textBaseline = "middle";
+      for (var g = 0; g <= 40 && g * step <= yMax; g++) {
+        var gy = py(g * step);
+        ctx.strokeStyle = border;
+        ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x0, gy); ctx.lineTo(x1, gy); ctx.stroke();
+        ctx.fillStyle = muted;
+        ctx.fillText("$" + fmt(g * step, step) + "T", x0 - 6, gy);
+      }
+
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      var xStep = niceStep(xMax, narrow ? 3 : 5);
+      for (var t = 0; t <= 40 && t * xStep <= xMax; t++) {
+        ctx.fillStyle = muted;
+        ctx.fillText(String(Math.round(t * xStep)), px(t * xStep), y1 + 7);
+      }
+      ctx.strokeStyle = withAlpha(fg, 0.28);
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x0, y1); ctx.lineTo(x1, y1); ctx.stroke();
+
+      // Everything that already ran this course, drawn complete.
+      var tags = [];
+      PRIOR.forEach(function (p) {
+        ctx.beginPath();
+        for (var s = 0; s <= 110; s++) {
+          var xv = (s / 110) * xMax;
+          var X = px(xv), Y = py(logistic(xv, p.ceil, p.mid, p.steep));
+          if (s === 0) ctx.moveTo(X, Y); else ctx.lineTo(X, Y);
+        }
+        ctx.strokeStyle = withAlpha(muted, 0.5);
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        var end = logistic(xMax, p.ceil, p.mid, p.steep);
+        if (end / yMax > 0.05) tags.push({ y: py(end), text: narrow ? p.name : p.name + " · " + p.since });
+      });
+      // Push overlapping ghost labels apart rather than letting them stack.
+      tags.sort(function (a, b) { return a.y - b.y; });
+      for (var i = 1; i < tags.length; i++) {
+        if (tags[i].y - tags[i - 1].y < 11) tags[i].y = tags[i - 1].y + 11;
+      }
+      ctx.font = "9px ui-monospace, monospace";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      tags.forEach(function (tag) {
+        if (tag.y > y1 - 2 || tag.y < y0) return;
+        // Each label sits directly on the line it names, so it needs a
+        // scrim under it or the stroke runs straight through the letters.
+        var tw = ctx.measureText(tag.text).width;
+        ctx.fillStyle = withAlpha(bg2, 0.8);
+        ctx.fillRect(x1 - 8 - tw, tag.y - 6, tw + 10, 12);
+        ctx.fillStyle = withAlpha(muted, 0.95);
+        ctx.fillText(tag.text, x1 - 5, tag.y);
+      });
+
+      var trace = [];
+      for (var s2 = 0; s2 <= 150; s2++) {
+        var xv2 = (s2 / 150) * xNow;
+        trace.push([px(xv2), py(ours(xv2))]);
+      }
+      ctx.beginPath();
+      ctx.moveTo(trace[0][0], y1);
+      trace.forEach(function (pt) { ctx.lineTo(pt[0], pt[1]); });
+      ctx.lineTo(trace[trace.length - 1][0], y1);
+      ctx.closePath();
+      var area = ctx.createLinearGradient(0, y0, 0, y1);
+      area.addColorStop(0, withAlpha(accent, 0.26));
+      area.addColorStop(1, withAlpha(accent, 0.02));
+      ctx.fillStyle = area;
+      ctx.fill();
+
+      ctx.beginPath();
+      trace.forEach(function (pt, i2) { if (i2) ctx.lineTo(pt[0], pt[1]); else ctx.moveTo(pt[0], pt[1]); });
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 2.2;
+      ctx.stroke();
+
+      // The asymptote. It only becomes visible once the frame has grown
+      // tall enough to contain it, which is the entire joke.
+      if (CEILING <= yMax) {
+        var cy = py(CEILING);
+        ctx.save();
+        ctx.setLineDash([5, 4]);
+        ctx.strokeStyle = withAlpha(accent2, 0.85);
+        ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(x0, cy); ctx.lineTo(x1, cy); ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = accent2;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "bottom";
+        ctx.fillText(narrow ? "implied ceiling" : "implied ceiling — unmoved since 2019", x0 + 4, cy - 3);
+      }
+
+      var nx = px(xNow), ny = py(ours(xNow));
+      ctx.save();
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = withAlpha(accent, 0.4);
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(nx, ny); ctx.lineTo(nx, y1); ctx.stroke();
+      ctx.restore();
+      if (attention > 0.02) {
+        ctx.fillStyle = withAlpha(accent, 0.16 * attention);
+        ctx.beginPath(); ctx.arc(nx, ny, 5 + attention * 12, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = accent;
+      ctx.beginPath(); ctx.arc(nx, ny, 3.6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = bg2; ctx.lineWidth = 1.4; ctx.stroke();
+
+      // Attention meter. The track starts after the measured label width,
+      // so the two can never print over each other at any canvas size.
+      ctx.font = "8px ui-monospace, monospace";
       ctx.textAlign = "left";
-    } else {
-      ctx.fillText("2020: AI Winter", left, bottom + 14);
-      ctx.fillText("2023: Generative Summer", left + chartW * 0.35, bottom + 14);
-      ctx.fillText("2025: Agentic Autumn", left + chartW * 0.7, bottom + 14);
-      ctx.fillText("2026: ???", right - 30, bottom + 14);
-    }
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = muted;
+      ctx.fillText("ATTENTION", x0, 13);
+      var lw = ctx.measureText("ATTENTION").width + 8;
+      var trackW = Math.max(36, Math.min(130, cw - lw));
+      ctx.fillStyle = withAlpha(muted, 0.22);
+      ctx.fillRect(x0 + lw, 10.5, trackW, 5);
+      ctx.fillStyle = accent;
+      ctx.fillRect(x0 + lw, 10.5, trackW * attention, 5);
 
-    // On a wide chart these two callouts have room side by side; on a
-    // narrow one "WE ARE ALL GOING TO JAIL" is nearly as wide as the whole
-    // canvas and runs straight into "You did this." at the same baseline —
-    // both can be showing at once, since USER_HYPE > 5 implies > 2. Stack
-    // them instead of overlapping when narrow.
-    if (USER_HYPE > 2) {
-      ctx.fillStyle = "#ff6b6b";
-      ctx.font = "italic 10px ui-monospace, monospace";
-      ctx.fillText("You did this.", narrow ? left : right - 70, narrow ? bottom - 18 : bottom - 5);
-    }
-    if (USER_HYPE > 5) {
-      ctx.fillStyle = "#ff4757";
-      ctx.font = "bold 11px ui-monospace, monospace";
-      ctx.fillText("WE ARE ALL GOING TO JAIL", narrow ? left : left + chartW * 0.3, bottom - 5);
-    }
+      // Nothing else says what the horizontal axis counts. Drawn only when
+      // it genuinely clears the meter, so the two can never touch.
+      var axisNote = "years since inception";
+      ctx.textAlign = "right";
+      if (x1 - (x0 + lw + trackW) > ctx.measureText(axisNote).width + 12) {
+        ctx.fillStyle = withAlpha(muted, 0.8);
+        ctx.fillText(axisNote, x1, 13);
+      }
 
-    if (TIME > 1.3 && USER_HYPE > 3 && Math.random() < 0.003) {
-      ctx.fillStyle = "rgba(255,255,255,0.9)";
-      ctx.font = "bold 12px ui-monospace, monospace";
-      ctx.fillText("The demo *was* the product.", left + chartW * 0.3, bottom - 25);
-    }
-
-    requestAnimationFrame(frame);
-  }
-  requestAnimationFrame(frame);
-
-  var tooltip = document.createElement("div");
-  tooltip.style.cssText = "position:absolute;background:rgba(0,0,0,0.9);color:#fff;padding:6px 10px;border-radius:4px;font:10px ui-monospace,monospace;opacity:0;transition:opacity 0.2s;pointer-events:none;z-index:100;";
-  mount.appendChild(tooltip);
-
-  mount.addEventListener("pointermove", function(e) {
-    var rect = mount.getBoundingClientRect();
-    var x = e.clientX - rect.left;
-    var y = e.clientY - rect.top;
-    for (var si = 0; si < sectors.length; si++) {
-      var cursorI = Math.min(n, Math.floor((x - left) / (chartW / n)));
-      if (cursorI >= 0 && cursorI < series[si].length) {
-        var val = series[si][cursorI];
-        if (val > 0.1) {
-          tooltip.textContent = sectors[si].name + ": $" + (val * 3).toFixed(1) + "T | Disrupting " + (Math.random() > 0.5 ? "everything" : "nothing");
-          tooltip.style.left = (x + 10) + "px";
-          tooltip.style.top = (y - 20) + "px";
-          tooltip.style.opacity = 1;
-          return;
+      if (hoverX != null) {
+        var hv = ((hoverX - x0) / cw) * xMax;
+        if (hv >= 0 && hv <= xNow) {
+          var hX = px(hv), hY = py(ours(hv));
+          ctx.strokeStyle = withAlpha(fg, 0.22);
+          ctx.lineWidth = 1;
+          ctx.beginPath(); ctx.moveTo(hX, y0); ctx.lineTo(hX, y1); ctx.stroke();
+          ctx.fillStyle = fg;
+          ctx.beginPath(); ctx.arc(hX, hY, 2.6, 0, Math.PI * 2); ctx.fill();
+          ctx.font = "9px ui-monospace, monospace";
+          var label = "yr " + Math.round(hv) + "   $" + ours(hv).toFixed(2) + "T";
+          var tagW = ctx.measureText(label).width + 12;
+          var tagX = Math.min(x1 - tagW, Math.max(x0, hX + 8));
+          var tagY = Math.max(y0 + 1, hY - 23);
+          ctx.fillStyle = withAlpha(fg, 0.92);
+          ctx.fillRect(tagX, tagY, tagW, 16);
+          ctx.fillStyle = bg2;
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillText(label, tagX + 6, tagY + 8.5);
         }
       }
+
+      var html = "<b>$" + ours(xNow).toFixed(2) + "T</b> of global attention capitalized, against an " +
+        "implied ceiling of $" + CEILING.toFixed(1) + "T. Vertical axis rescaled " + relabels +
+        (relabels === 1 ? " time" : " times") + " so far.<br>" + verdict(progress);
+      if (html !== lastHtml) { status.innerHTML = html; lastHtml = html; }
+
+      requestAnimationFrame(frame);
     }
-    tooltip.style.opacity = 0;
-  });
-  // pointermove alone never fires once the pointer has left the widget
-  // entirely, so the tooltip was staying on screen indefinitely with
-  // whatever stale sector/value it last showed.
-  mount.addEventListener("pointerleave", function () { tooltip.style.opacity = 0; });
-}
+    requestAnimationFrame(frame);
+  }
 
   // ---------------------------------------------------------------
   // 2525 — Negotiate with your Mandate

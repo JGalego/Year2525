@@ -363,69 +363,231 @@
   var GENERATORS = {
 
     /* ----------------------------------------------------------------------
-       INTRO — one interface mutating through the timeline's visual grammar.
+       INTRO — "The Long Gallery."
+       The museum this whole page is a catalogue for, seen down its length.
+       Six vitrines recede toward a vanishing point, each holding the hero
+       object of one era: an application, a statute, an organism, a folded
+       solid, a weather system, and finally a thing with no edges left. The
+       dissolution is literally perspective — each station is smaller,
+       paler, softer and less object-like than the one in front of it,
+       until the far end is only light. A visitor at the near end fixes the
+       scale, and the polished floor doubles everything.
+
+       This shares the grammar of the other nine scenes but runs high-key,
+       like PRESENT: the intro sits inside the light present-day era and
+       has no frame of its own, so depth is carried by a darkened ceiling
+       and a tinted floor rather than by neon against black.
        ---------------------------------------------------------------------- */
     intro: function () {
       var sc = new Scene("intro");
+      // .future-intro-art is 3:1 while the artboard is 5:2, and the scene
+      // is sliced to cover — so roughly y<22 and y>218 are cropped away on
+      // screen. Everything load-bearing is composed inside that band.
+      var VP = { x: 556, y: 104 };
+      var NEAR_X = 52, NEAR_BASE = 188;
 
-      sky(sc, [[0, "var(--bg)", 0], [0.5, "var(--bg2)", 0.55], [1, "var(--bg)", 0]]);
-      keyLight(sc, "key", 300, 120, 260, "var(--accent)", 0.16);
+      // Almost transparent: this banner sits directly on the page rather
+      // than in a framed box, so it has to blend at its edges.
+      sky(sc, [[0, "var(--bg)", 0], [0.46, "var(--bg2)", 0.5], [1, "var(--bg)", 0]]);
 
-      var rail = path("M42 132 C130 132 160 90 228 112 S340 165 410 112 S510 86 562 120", {
-        stroke: "var(--accent)", "stroke-width": 1.4, opacity: 0.42
-      });
-      sc.add(rail);
+      // A darkened ceiling plane. On a light era there is no black to
+      // silhouette against, so this is what lets the lamps and the far
+      // bloom read as light at all.
+      sc.add(rect(0, -20, W, VP.y + 20, {
+        fill: sc.linear("ceil", 0, -20, 0, VP.y, [
+          [0, "#0d1018", 0.15], [0.72, "#0d1018", 0.05], [1, "#0d1018", 0]
+        ], true), stroke: "none"
+      }));
+      // Polished floor, darkest at the front and washing out toward the
+      // vanishing point — atmospheric perspective doing most of the work.
+      sc.add(rect(0, VP.y, W, H - VP.y, {
+        fill: sc.linear("floor", 0, VP.y, 0, H, [
+          [0, "#0d1018", 0.02], [0.5, "#0d1018", 0.10], [1, "#0d1018", 0.17]
+        ], true), stroke: "none"
+      }));
+      keyLight(sc, "key", VP.x, VP.y, 250, "var(--accent)", 0.20);
 
-      // Application window.
-      var app = group({ transform: "translate(30 72)" });
-      app.appendChild(rect(0, 0, 74, 54, { rx: 5, fill: "var(--fg)", "fill-opacity": 0.04, "stroke-width": 1.8 }));
-      app.appendChild(line(0, 13, 74, 13, { opacity: 0.65 }));
-      [8, 15, 22].forEach(function (x) { app.appendChild(circle(x, 7, 1.5, solid("var(--accent)", 0.8))); });
-      app.appendChild(rect(9, 22, 22, 22, { rx: 2, opacity: 0.46 }));
-      app.appendChild(line(39, 25, 64, 25, { opacity: 0.7 }));
-      app.appendChild(line(39, 33, 59, 33, { opacity: 0.4 }));
-      app.appendChild(line(39, 41, 53, 41, { opacity: 0.25 }));
-      sc.add(app);
+      // Converging floor lines. Transverse spacing is squared so the
+      // courses bunch toward the horizon instead of marching evenly.
+      var grid = group({ opacity: 0.12, "stroke-width": 0.7, stroke: "var(--fg)" });
+      for (var gx = -700; gx <= 1400; gx += 110) {
+        grid.appendChild(line(gx, H + 12, VP.x + (gx - VP.x) * 0.05, VP.y + 3, null));
+      }
+      // From gr=1: the gr=0 course lies exactly on the horizon and drew a
+      // hard rule straight through the tops of the nearer cases.
+      for (var gr = 1; gr < 6; gr++) {
+        var gy = VP.y + Math.pow(gr / 5, 2.3) * (H + 12 - VP.y);
+        grid.appendChild(line(0, gy, W, gy, { opacity: 0.9 - gr * 0.1 }));
+      }
+      // Fade the whole grid out before it reaches the vanishing point —
+      // full-width courses read as graph paper exactly where the floor is
+      // supposed to be dissolving into light.
+      var gridMask = make("mask", { id: sc.id("gridm"), maskUnits: "userSpaceOnUse", x: 0, y: 0, width: W, height: H });
+      gridMask.appendChild(rect(0, 0, W, H, {
+        fill: sc.linear("gridf", 0, 0, W, 0, [
+          [0, "#ffffff", 1], [0.5, "#ffffff", 0.8], [0.86, "#ffffff", 0]
+        ], true), stroke: "none"
+      }));
+      sc.def(gridMask);
+      grid.setAttribute("mask", "url(#" + sc.id("gridm") + ")");
+      sc.add(grid);
 
-      // Mandate: a document held up by absurdly formal columns.
-      var law = group({ transform: "translate(145 67)" });
-      law.appendChild(rect(12, 0, 52, 66, { rx: 2, fill: "var(--accent2)", "fill-opacity": 0.05, stroke: "var(--accent2)", opacity: 0.82 }));
-      for (var l = 0; l < 5; l++) law.appendChild(line(22, 14 + l * 9, 54 - (l % 2) * 8, 14 + l * 9, { stroke: "var(--accent2)", opacity: 0.45 }));
-      law.appendChild(line(6, 70, 70, 70, { stroke: "var(--accent2)", "stroke-width": 2 }));
-      law.appendChild(line(16, 66, 16, 76, { stroke: "var(--accent2)" }));
-      law.appendChild(line(60, 66, 60, 76, { stroke: "var(--accent2)" }));
-      sc.add(law);
+      // Where the left wall meets the floor. This is the same locus the
+      // vitrine bases sit on, so it reads as the line they are ranged
+      // along rather than as an extra mark.
+      sc.add(line(0, VP.y + (NEAR_BASE - VP.y) * (VP.x / (VP.x - NEAR_X)), VP.x, VP.y, {
+        stroke: "var(--fg)", "stroke-width": 0.9, opacity: 0.2
+      }));
 
-      // Cultivar branching out of the rail.
-      var plant = group({ transform: "translate(250 52)" });
-      plant.appendChild(path("M34 82 C32 58 40 36 34 10 M34 48 C18 40 12 30 10 20 M35 62 C52 52 58 39 59 27", { "stroke-width": 2 }));
-      [[9,18,-8],[14,31,-11],[58,26,10],[54,42,10],[33,9,0]].forEach(function (leaf) {
-        plant.appendChild(ellipse(leaf[0], leaf[1], 9, 4, { transform: "rotate(" + leaf[2] + " " + leaf[0] + " " + leaf[1] + ")", fill: "var(--accent)", "fill-opacity": 0.12 }));
-      });
-      sc.add(plant);
-
-      // Folding: nested matter configurations, all nearly stable.
-      var fold = group({ transform: "translate(350 66)" });
-      fold.appendChild(polygon("0,48 24,0 72,13 62,66 18,72", { fill: "var(--accent2)", "fill-opacity": 0.08, stroke: "var(--accent2)", "stroke-width": 1.5 }));
-      fold.appendChild(polyline("0,48 38,39 24,0 72,13 38,39 62,66 18,72 38,39", { stroke: "var(--accent2)", opacity: 0.62 }));
-      sc.add(fold);
-
-      // Weather collapsing into resonance and then into an unnamed blur.
-      var weather = group({ transform: "translate(456 94)" });
-      for (var arc = 0; arc < 4; arc++) {
-        weather.appendChild(path("M0 " + (arc * 9) + " C20 " + (arc * 9 - 18) + " 38 " + (arc * 9 + 18) + " 58 " + (arc * 9), {
-          opacity: 0.72 - arc * 0.1, "stroke-width": 1.4
+      // A receding run of ceiling lamps: the reason there is light here.
+      var lamps = group({ filter: sc.bloom("lamp", 1.8) });
+      for (var li = 0; li < 7; li++) {
+        var lt = li / 6;
+        var ls = 1 / (1 + lt * 4.4);
+        var lx = VP.x - (VP.x - 150) * ls;
+        var ly = VP.y - (VP.y - 38) * ls;
+        lamps.appendChild(rect(lx - 26 * ls, ly - 3 * ls, 52 * ls, 6 * ls, {
+          rx: 3 * ls, fill: "#ffffff", stroke: "none", opacity: 0.3 + 0.38 * (1 - lt)
         }));
       }
-      sc.add(weather);
+      sc.add(lamps);
 
-      var hum = group({ transform: "translate(555 112)", filter: sc.bloom("hum", 3) });
-      for (var ring = 1; ring <= 4; ring++) hum.appendChild(circle(0, 0, ring * 10, { opacity: 0.5 / ring }));
-      hum.appendChild(circle(0, 0, 3, solid("var(--fg)", 0.9)));
-      sc.add(hum);
+      /* -- the six stations ------------------------------------------------
+         One vitrine per successor state. Scale, baseline height, ink and
+         blur all derive from the same perspective factor, so a station's
+         distance is the only thing that decides how dissolved it looks. */
+      // The last two hold nothing: the gallery keeps going past the point
+      // where this page can name what is in the cases.
+      var KINDS = ["app", "law", "grow", "fold", "weather", "hum", "gone", "gone"];
+      var XS = [52, 158, 248, 322, 383, 432, 470, 498];
+      var built = [];
 
-      motes(sc, 44, 85, 48, 590, 172, "var(--accent)", 1.4);
-      grade(sc, { scan: 0.025, grain: 0.1, vignette: 0.44 });
+      KINDS.forEach(function (kind, i) {
+        var x = XS[i];
+        var s = (VP.x - x) / (VP.x - NEAR_X);            // 1 near → 0.11 far
+        var base = VP.y + (NEAR_BASE - VP.y) * s;
+        // Dissolution is deliberately gentler than the scale falloff. A
+        // power curve took the far stations to unreadable smudge, which
+        // loses the point — you have to be able to see what is being lost,
+        // so distance takes detail and sharpness before it takes presence.
+        var ink = 0.35 + 0.65 * s;
+        var g = group({ opacity: ink });
+        if (s < 0.95) g.setAttribute("filter", sc.blur("st" + i, (1 - s) * 1.6));
+
+        var pw = 58 * s, ph = 30 * s, px0 = x - pw / 2;
+        var top = base - ph;                              // the plinth's top face
+        g.appendChild(ellipse(x, base + 1.5 * s, pw * 0.7, 4.5 * s, {
+          fill: "#0d1018", stroke: "none", opacity: 0.3, filter: sc.blur("cs" + i, 1.8 * s + 0.4)
+        }));
+        g.appendChild(rect(px0, top, pw, ph, solid("#131926", 0.86)));
+        g.appendChild(rect(px0 + pw * 0.74, top, pw * 0.26, ph, solid("#39445a", 0.5)));
+        g.appendChild(rect(px0 - 3 * s, top - 4 * s, pw + 6 * s, 4.5 * s, solid("#080c16", 0.9)));
+
+        // Every era's hero object is authored in the same local box — 46
+        // tall, ±26 wide, sitting on y=0 — then placed by the plinth's top
+        // face and scaled by distance. Nothing floats.
+        var o = group({ transform: "translate(" + x + " " + (top - 4 * s) + ") scale(" + s + ")" });
+        if (kind === "app") {
+          o.appendChild(rect(-26, -48, 52, 44, { rx: 4, fill: "var(--bg2)", "fill-opacity": 0.92, stroke: "var(--fg)", "stroke-width": 1.6, opacity: 0.9 }));
+          o.appendChild(line(-26, -37, 26, -37, { stroke: "var(--fg)", opacity: 0.5 }));
+          [-21, -16, -11].forEach(function (cx) { o.appendChild(circle(cx, -42.5, 1.4, solid("var(--accent)", 0.85))); });
+          o.appendChild(rect(-21, -33, 17, 17, { rx: 2, stroke: "var(--accent)", opacity: 0.55 }));
+          o.appendChild(line(-1, -30, 21, -30, { stroke: "var(--fg)", opacity: 0.45 }));
+          o.appendChild(line(-1, -24, 16, -24, { stroke: "var(--fg)", opacity: 0.3 }));
+          o.appendChild(line(-1, -18, 19, -18, { stroke: "var(--fg)", opacity: 0.2 }));
+        } else if (kind === "law") {
+          o.appendChild(polygon("0,-48 22,-37 25,-15 0,-3 -25,-15 -22,-37", {
+            fill: "var(--accent2)", "fill-opacity": 0.1, stroke: "var(--accent2)", "stroke-width": 1.6, opacity: 0.9
+          }));
+          for (var l = 0; l < 3; l++) {
+            o.appendChild(line(-12, -36 + l * 7, 12 - (l % 2) * 6, -36 + l * 7, { stroke: "var(--accent2)", opacity: 0.5 }));
+          }
+        } else if (kind === "grow") {
+          o.appendChild(path("M0 -3 C-2 -18 3 -30 0 -46 M0 -24 C-11 -29 -15 -35 -17 -41 M1 -32 C12 -37 16 -43 17 -47", {
+            stroke: "var(--accent)", "stroke-width": 2, opacity: 0.85
+          }));
+          [[-17, -42, -16], [17, -48, 14], [0, -47, 0], [-11, -30, -10], [11, -36, 12]].forEach(function (lf) {
+            o.appendChild(ellipse(lf[0], lf[1], 6.5, 3, {
+              transform: "rotate(" + lf[2] + " " + lf[0] + " " + lf[1] + ")",
+              fill: "var(--accent)", "fill-opacity": 0.18, stroke: "var(--accent)", opacity: 0.62
+            }));
+          });
+        } else if (kind === "fold") {
+          o.appendChild(polygon("-23,-21 -5,-46 21,-40 24,-15 2,-4", {
+            fill: "var(--accent2)", "fill-opacity": 0.09, stroke: "var(--accent2)", "stroke-width": 1.5, opacity: 0.82
+          }));
+          o.appendChild(polyline("-23,-21 0,-26 -5,-46 21,-40 0,-26 24,-15 2,-4 0,-26", {
+            stroke: "var(--accent2)", opacity: 0.5
+          }));
+        } else if (kind === "weather") {
+          // Open linework this far down the row has far less presence
+          // than the filled near shapes, so it is drawn heavier to land
+          // at the same apparent weight once distance has thinned it.
+          for (var a = 0; a < 4; a++) {
+            var ay = -40 + a * 8;
+            o.appendChild(path("M-22 " + ay + " C-9 " + (ay - 8) + " 8 " + (ay + 8) + " 22 " + ay, {
+              stroke: "var(--accent)", "stroke-width": 2.4, opacity: 0.92 - a * 0.1
+            }));
+          }
+        } else if (kind === "hum") {
+          // Nothing with an edge left — the era the page cannot name.
+          o.setAttribute("filter", sc.bloom("hum", 2.6));
+          for (var r = 1; r <= 4; r++) {
+            o.appendChild(circle(0, -26, r * 6.5, { stroke: "var(--accent)", "stroke-width": 2, opacity: 0.62 / r }));
+          }
+          o.appendChild(circle(0, -26, 3, solid("var(--accent)", 0.95)));
+        }
+        g.appendChild(o);
+
+        // The case, over the object. This is what makes it a museum and
+        // not a shelf — and losing it further down the row is the point.
+        var gh = 52 * s, gw = pw + 7 * s, gx0 = x - gw / 2;
+        g.appendChild(rect(gx0, top - gh, gw, gh, {
+          fill: "var(--bg2)", "fill-opacity": 0.14, stroke: "var(--fg)", "stroke-width": 0.8, opacity: 0.3
+        }));
+        g.appendChild(polygon(pts([
+          (gx0 + gw * 0.12) + "," + (top - gh), (gx0 + gw * 0.32) + "," + (top - gh),
+          (gx0 + gw * 0.14) + "," + top, gx0 + "," + top
+        ]), { fill: "#ffffff", stroke: "none", opacity: 0.2 }));
+
+        built.push({ g: g, base: base, s: s });
+      });
+
+      // Reflections first so they sit under every station, each mirrored
+      // about its own baseline rather than one shared floor line.
+      built.forEach(function (b, i) {
+        reflect(sc, "r" + i, b.g, b.base, 46 * b.s + 10, 0.16 * b.s + 0.05, 1.1);
+      });
+      // Then the stations themselves, far to near, so nearer ones occlude.
+      for (var k = built.length - 1; k >= 0; k--) sc.add(built[k].g);
+
+      // The far end, erased. Everything within reach of the vanishing
+      // point loses its edges to the light it is receding into.
+      sc.add(rect(0, 0, W, H, {
+        fill: sc.radial("vpwash", VP.x / W, VP.y / H, 0.22, [
+          [0, "#ffffff", 0.78], [0.42, "#ffffff", 0.42], [0.78, "var(--bg2)", 0.14], [1, "#ffffff", 0]
+        ]), stroke: "none"
+      }));
+
+      // Two visitors, for scale. Without them the vitrines could be any
+      // size at all, and the gallery stops being a room.
+      var near = figure(100, 198, 60, { opacity: 0.92 });
+      sc.add(ellipse(100, 199, 13, 3.4, { fill: "#0d1018", stroke: "none", opacity: 0.28, filter: sc.blur("f1s", 2) }));
+      reflect(sc, "fr1", near, 198, 44, 0.16, 1.2);
+      sc.add(near);
+      var far = figure(286, 160, 26, { opacity: 0.5 });
+      sc.add(ellipse(286, 160.6, 6, 1.7, { fill: "#0d1018", stroke: "none", opacity: 0.22, filter: sc.blur("f2s", 1.2) }));
+      sc.add(far);
+
+      // Dust, kept to the darkened upper half where white specks read.
+      var dust = group({ filter: sc.blur("dust-b", 0.6) });
+      for (var d = 0; d < 44; d++) {
+        dust.appendChild(circle(sc.rand(30, 585), sc.rand(24, 150), sc.rand(0.4, 1.3),
+          solid("#ffffff", sc.rand(0.15, 0.6))));
+      }
+      sc.add(dust);
+
+      grade(sc, { scan: 0.022, grain: 0.085, vignette: 0.3 });
       return sc.svg;
     },
 
