@@ -334,6 +334,12 @@ body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05r
   color: var(--accent);
   margin-bottom: 1.1rem;
 }
+/* Uppercase mono at .14em tracking is wide enough that the date range
+   wraps on a phone and orphans the arrow onto its own line. Tighten it
+   just for this kicker rather than the era kickers, which are shorter. */
+@media (max-width: 600px) {
+  .future-intro-kicker { font-size: .7rem; letter-spacing: .1em; }
+}
 
 .future-intro h1 {
   font-size: clamp(2.5rem, 7vw, 4.6rem);
@@ -341,7 +347,11 @@ body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05r
   margin-bottom: .5em;
 }
 
-.future-intro p {
+/* :not([class]) so this only sizes the lede paragraphs. As a bare
+   `.future-intro p` it outranked both .future-intro-kicker and
+   .future-intro-note on specificity (0,1,1 over 0,1,0) and silently
+   killed their font sizes — the kicker was rendering at 1.1rem. */
+.future-intro p:not([class]) {
   font-size: 1.1rem;
   max-width: 62ch;
 }
