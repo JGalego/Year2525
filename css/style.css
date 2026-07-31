@@ -663,15 +663,18 @@ body[data-mode="past"] { --transition-era: background-color .5s ease, color .5s 
 
 /* regressing visual language, oldest → newest as we go further back */
 
-body[data-past="modern-web"] { --bg:#f5f6fa; --fg:#14161c; --muted:#6b7280; --accent:#7c5cff; --border: rgba(0,0,0,.1); --font-display: -apple-system, sans-serif; }
+body[data-past="modern-web"] { --bg:#f5f6fa; --fg:#14161c; --muted:#6b7280; --accent:#7c5cff; --border: rgba(0,0,0,.1); }
+.past[data-past="modern-web"] { --font-display: -apple-system, sans-serif; }
 body[data-past="iphone"] { --bg: linear-gradient(#dfe7f0,#c9d6e6); --bg:#dbe4ef; --fg:#22262e; --muted:#5b6675; --accent:#c98a3e; --border: rgba(0,0,0,.15); }
 body[data-past="iphone"] .past { background: linear-gradient(#e9edf2,#c3cedb); }
 
-body[data-past="xp"] { --bg:#3a6ea5; --fg:#ffffff; --muted:#dbe9fb; --accent:#ffde59; --border: rgba(255,255,255,.4); --font-body: Tahoma, Verdana, sans-serif; --font-display: Tahoma, Verdana, sans-serif; }
+body[data-past="xp"] { --bg:#3a6ea5; --fg:#ffffff; --muted:#dbe9fb; --accent:#ffde59; --border: rgba(255,255,255,.4); }
+.past[data-past="xp"] { font-family: Tahoma, Verdana, sans-serif; --font-display: Tahoma, Verdana, sans-serif; }
 body[data-past="xp"] .past { background: linear-gradient(#5b8fd6 0%, #3a6ea5 40%, #2f5d8f 100%); }
 body[data-past="xp"] h2 { text-shadow: 1px 1px 0 rgba(0,0,0,.35); }
 
-body[data-past="win95"] { --bg:#c0c0c0; --fg:#000000; --muted:#333333; --accent:#000080; --border:#808080; --font-body: "Segoe UI", Tahoma, sans-serif; --font-display: "Segoe UI", Tahoma, sans-serif; }
+body[data-past="win95"] { --bg:#c0c0c0; --fg:#000000; --muted:#333333; --accent:#000080; --border:#808080; }
+.past[data-past="win95"] { font-family: "Segoe UI", Tahoma, sans-serif; --font-display: "Segoe UI", Tahoma, sans-serif; }
 body[data-past="win95"] .past { box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 4px #808080; }
 body[data-past="win95"] h2 { color: #000080; }
 
@@ -698,7 +701,8 @@ body[data-past="win95"] h2 { color: #000080; }
 .win95-progress { height: 16px; margin: .7rem 0; border: 2px inset #fff; background: #fff; }
 .win95-progress span { display: block; width: 0; height: 100%; background: #000080; }
 
-body[data-past="zxspectrum"] { --bg:#c9c4b6; --fg:#241f18; --muted:#6b6558; --accent:#cc1414; --border:#8a8374; --font-body: Georgia, serif; --font-display: Georgia, serif; }
+body[data-past="zxspectrum"] { --bg:#c9c4b6; --fg:#241f18; --muted:#6b6558; --accent:#cc1414; --border:#8a8374; }
+.past[data-past="zxspectrum"] { font-family: Georgia, serif; --font-display: Georgia, serif; }
 body[data-past="zxspectrum"] .past { background: linear-gradient(#d4d0c2, #c9c4b6); }
 .zx-loading-strip {
   width: 200px; height: 14px; margin: 1.4rem auto 0; border-radius: 2px;
@@ -716,10 +720,12 @@ body[data-past="zxspectrum"] .past { background: linear-gradient(#d4d0c2, #c9c4b
   100% { background: #000000; }
 }
 
-body[data-past="system7"] { --bg:#ffffff; --fg:#000000; --muted:#555555; --accent:#000000; --border:#000000; --font-body: "Chicago", "Helvetica Neue", Helvetica, sans-serif; --font-display: "Chicago", "Helvetica Neue", Helvetica, sans-serif; }
+body[data-past="system7"] { --bg:#ffffff; --fg:#000000; --muted:#555555; --accent:#000000; --border:#000000; }
+.past[data-past="system7"] { font-family: "Chicago", "Helvetica Neue", Helvetica, sans-serif; --font-display: "Chicago", "Helvetica Neue", Helvetica, sans-serif; }
 body[data-past="system7"] .past { background: repeating-linear-gradient(45deg,#fff,#fff 2px,#f0f0f0 2px,#f0f0f0 4px); }
 
-body[data-past="msdos"] { --bg:#000000; --fg:#33ff66; --muted:#1f9c44; --accent:#33ff66; --border:#1f9c44; --font-body: var(--font-mono); --font-display: var(--font-mono); }
+body[data-past="msdos"] { --bg:#000000; --fg:#33ff66; --muted:#1f9c44; --accent:#33ff66; --border:#1f9c44; }
+.past[data-past="msdos"] { font-family: var(--font-mono); --font-display: var(--font-mono); }
 body[data-past="msdos"] .past {
   background:
     repeating-linear-gradient(rgba(0,0,0,0) 0, rgba(0,0,0,0) 2px, rgba(0,0,0,0.35) 3px),
@@ -727,7 +733,8 @@ body[data-past="msdos"] .past {
 }
 body[data-past="msdos"] h2 { text-shadow: 0 0 6px currentColor; }
 
-body[data-past="eighties"] { --bg:#f4d536; --fg:#201644; --muted:#66541a; --accent:#e42372; --border:#201644; --font-body: Georgia, serif; --font-display: "Arial Black", Impact, sans-serif; }
+body[data-past="eighties"] { --bg:#f4d536; --fg:#201644; --muted:#66541a; --accent:#e42372; --border:#201644; }
+.past[data-past="eighties"] { font-family: Georgia, serif; --font-display: "Arial Black", Impact, sans-serif; }
 body[data-past="eighties"] .past { background: repeating-linear-gradient(135deg,#f4d536 0 22px,#edc72e 22px 44px); }
 .eighties-desk { width:min(100%,500px); margin:1.4rem auto; display:grid; grid-template-columns:1.5fr .8fr .8fr; gap:.8rem; align-items:end; font-family:var(--font-mono); }
 .eighties-monitor { min-height:120px; padding:1rem; color:#5bf5ff; background:#24154c; border:12px solid #c8b69b; border-radius:7px; box-shadow:7px 8px 0 #201644; text-align:left; }
@@ -736,39 +743,52 @@ body[data-past="eighties"] .past { background: repeating-linear-gradient(135deg,
 .eighties-magazine { padding:1rem .4rem; color:#fff; background:#e42372; transform:rotate(4deg); box-shadow:5px 6px 0 #201644; font-family:var(--font-display); }
 @keyframes eighties-cursor { 50% { opacity:0; } }
 
-body[data-past="mainframe"] { --bg:#1a1206; --fg:#ffb000; --muted:#a9691d; --accent:#ffb000; --border:#a9691d; --font-body: var(--font-mono); --font-display: var(--font-mono); }
+body[data-past="mainframe"] { --bg:#1a1206; --fg:#ffb000; --muted:#a9691d; --accent:#ffb000; --border:#a9691d; }
+.past[data-past="mainframe"] { font-family: var(--font-mono); --font-display: var(--font-mono); }
 
-body[data-past="punchcard"] { --bg:#e9dcb5; --fg:#2b2416; --muted:#6b5c3e; --accent:#7a5c2e; --border:#b8a06a; --font-body: "Courier New", monospace; --font-display: "Courier New", monospace; }
+body[data-past="punchcard"] { --bg:#e9dcb5; --fg:#2b2416; --muted:#6b5c3e; --accent:#7a5c2e; --border:#b8a06a; }
+.past[data-past="punchcard"] { font-family: "Courier New", monospace; --font-display: "Courier New", monospace; }
 
-body[data-past="papertape"] { --bg:#efe6cf; --fg:#33291a; --muted:#7a6b4a; --accent:#8a6b2e; --border:#c9b789; --font-body: "Courier New", monospace; --font-display: "Courier New", monospace; }
+body[data-past="papertape"] { --bg:#efe6cf; --fg:#33291a; --muted:#7a6b4a; --accent:#8a6b2e; --border:#c9b789; }
+.past[data-past="papertape"] { font-family: "Courier New", monospace; --font-display: "Courier New", monospace; }
 
-body[data-past="mechanical"] { --bg:#2b1d12; --fg:#e8dcc4; --muted:#a4906c; --accent:#c9a24b; --border:#5a4326; --font-body: Georgia, serif; --font-display: Georgia, serif; }
+body[data-past="mechanical"] { --bg:#2b1d12; --fg:#e8dcc4; --muted:#a4906c; --accent:#c9a24b; --border:#5a4326; }
+.past[data-past="mechanical"] { font-family: Georgia, serif; --font-display: Georgia, serif; }
 
 body[data-past="jacquard"] { --bg:#2a1f2e; --fg:#f2e6f0; --muted:#b79cc0; --accent:#d88fd0; --border:#6b4f73; }
 body[data-past="jacquard"] .past { background: repeating-linear-gradient(90deg, #35283a, #35283a 6px, #2a1f2e 6px, #2a1f2e 12px); }
 
-body[data-past="babbage"] { --bg:#1c1712; --fg:#e9dcc0; --muted:#a08e6a; --accent:#c9a24b; --border:#4a3d28; --font-body: Georgia, serif; }
+body[data-past="babbage"] { --bg:#1c1712; --fg:#e9dcc0; --muted:#a08e6a; --accent:#c9a24b; --border:#4a3d28; }
+.past[data-past="babbage"] { font-family: Georgia, serif; }
 
 body[data-past="astronomical"] { --bg:#0a0e1e; --fg:#e6e9f5; --muted:#7a83a8; --accent:#f2d675; --border:#2a3260; }
 body[data-past="astronomical"] .past { background-image: radial-gradient(1px 1px at 20% 30%, #fff, transparent), radial-gradient(1px 1px at 70% 60%, #fff, transparent), radial-gradient(1px 1px at 40% 80%, #fff, transparent), radial-gradient(1px 1px at 85% 20%, #fff, transparent), radial-gradient(1px 1px at 55% 45%, #fff, transparent); background-color: #0a0e1e; }
 
-body[data-past="abacus"] { --bg:#3a2a1a; --fg:#f0e0c0; --muted:#b39568; --accent:#d4a24e; --border:#6b4d2a; --font-body: Georgia, serif; }
+body[data-past="abacus"] { --bg:#3a2a1a; --fg:#f0e0c0; --muted:#b39568; --accent:#d4a24e; --border:#6b4d2a; }
+.past[data-past="abacus"] { font-family: Georgia, serif; }
 
-body[data-past="claytablet"] { --bg:#8a6a45; --fg:#2b1d0f; --muted:#4a3620; --accent:#3b2a16; --border:#6b4e2e; --font-body: Georgia, serif; }
+body[data-past="claytablet"] { --bg:#8a6a45; --fg:#2b1d0f; --muted:#4a3620; --accent:#3b2a16; --border:#6b4e2e; }
+.past[data-past="claytablet"] { font-family: Georgia, serif; }
 
-body[data-past="tally"] { --bg:#c9b899; --fg:#2b2416; --muted:#5c4f37; --accent:#3b3120; --border:#a4926e; --font-body: Georgia, serif; }
+body[data-past="tally"] { --bg:#c9b899; --fg:#2b2416; --muted:#5c4f37; --accent:#3b3120; --border:#a4926e; }
+.past[data-past="tally"] { font-family: Georgia, serif; }
 
-body[data-past="knotrope"] { --bg:#5a3a24; --fg:#f0e4cc; --muted:#c2a578; --accent:#e0b878; --border:#7a5636; --font-body: Georgia, serif; }
+body[data-past="knotrope"] { --bg:#5a3a24; --fg:#f0e4cc; --muted:#c2a578; --accent:#e0b878; --border:#7a5636; }
+.past[data-past="knotrope"] { font-family: Georgia, serif; }
 
-body[data-past="memorypalace"] { --bg:#241a12; --fg:#f2e6d2; --muted:#b89870; --accent:#e6b366; --border:#4a3520; --font-body: "Iowan Old Style", Georgia, serif; }
+body[data-past="memorypalace"] { --bg:#241a12; --fg:#f2e6d2; --muted:#b89870; --accent:#e6b366; --border:#4a3520; }
+.past[data-past="memorypalace"] { font-family: "Iowan Old Style", Georgia, serif; }
 
-body[data-past="language"] { --bg:#0b0e18; --fg:#e6e9f2; --muted:#7a83a0; --accent:#f2d675; --border:#252d48; --font-body: Georgia, serif; }
+body[data-past="language"] { --bg:#0b0e18; --fg:#e6e9f2; --muted:#7a83a0; --accent:#f2d675; --border:#252d48; }
+.past[data-past="language"] { font-family: Georgia, serif; }
 
-body[data-past="fire"] { --bg:#170e08; --fg:#ffdcb0; --muted:#c78a4a; --accent:#ff8a3d; --border:#4a2c14; --font-body: Georgia, serif; }
+body[data-past="fire"] { --bg:#170e08; --fg:#ffdcb0; --muted:#c78a4a; --accent:#ff8a3d; --border:#4a2c14; }
+.past[data-past="fire"] { font-family: Georgia, serif; }
 body[data-past="fire"] .past { background: radial-gradient(circle at 50% 60%, rgba(255,138,61,.18), rgba(23,14,8,0) 60%), #170e08; animation: flicker 4s ease-in-out infinite; }
 @keyframes flicker { 0%,100% { filter: brightness(1); } 45% { filter: brightness(1.08); } 60% { filter: brightness(.95); } }
 
-body[data-past="presymbolic"] { --bg:#050403; --fg:#c9c2b8; --muted:#6b6459; --accent:#8a8074; --border:#2a2620; --font-body: Georgia, serif; }
+body[data-past="presymbolic"] { --bg:#050403; --fg:#c9c2b8; --muted:#6b6459; --accent:#8a8074; --border:#2a2620; }
+.past[data-past="presymbolic"] { font-family: Georgia, serif; }
 
 /* widgets specific to past-lightcone */
 .dos-terminal, .punchcard-widget, .abacus-widget, .past-widget {

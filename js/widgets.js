@@ -135,6 +135,13 @@
     var fg = cssVar("--fg", "#eee");
     var muted = cssVar("--muted", "#97a0ae");
 
+    // Below this width the "Hype Cap Index $X.XT" cluster and the
+    // "Delusion X% Bags X%" cluster physically don't both fit on one row —
+    // they were previously laid out from fixed pixel offsets sized for a
+    // desktop-width chart, so on a phone-width canvas they printed on top
+    // of each other. Below the threshold, stack them on two rows instead.
+    var narrow = w < 480;
+    top = narrow ? 32 : 20;
     right = w - 18; bottom = h - 22;
     chartW = Math.max(120, right - left);
     chartH = Math.max(100, bottom - top);
@@ -227,42 +234,63 @@
     var vol = Math.min(99, Math.round(40 + USER_HYPE * 40 + Math.abs(Math.sin(TIME * 3.2)) * 15));
     var crowd = Math.min(100, Math.round(60 + USER_HYPE * 25 + Math.abs(Math.cos(TIME * 1.8)) * 10));
 
+    var statY1 = 13, statY2 = narrow ? 26 : 13;
     ctx.font = "10px ui-monospace, monospace";
     ctx.fillStyle = muted;
-    ctx.fillText("Hype Cap Index", left, 13);
+    ctx.fillText("Hype Cap Index", left, statY1);
     ctx.fillStyle = "#ff6b6b";
-    ctx.fillText("$" + cap + "T", left + 110, 13);
+    ctx.fillText("$" + cap + "T", left + 110, statY1);
 
     // Right-hand stat cluster, laid out from a fixed anchor so the four
     // labels/values never collide regardless of digit count (a previous
     // pass had "Bagholders" run its own text width straight into the
-    // crowd% value it sits next to).
+    // crowd% value it sits next to). On a narrow canvas the two clusters
+    // no longer fit side by side at all — the right cluster drops to a
+    // second row, left-anchored like the first, instead of overlapping it.
+    var rightClusterX = narrow ? left : right - 172;
     ctx.fillStyle = muted;
-    ctx.fillText("Delusion", right - 172, 13);
+    ctx.fillText("Delusion", rightClusterX, statY2);
     ctx.fillStyle = accent2;
-    ctx.fillText(vol + "%", right - 108, 13);
+    ctx.fillText(vol + "%", rightClusterX + 64, statY2);
 
     ctx.fillStyle = muted;
-    ctx.fillText("Bags", right - 76, 13);
+    ctx.fillText("Bags", rightClusterX + 96, statY2);
     ctx.fillStyle = fg;
-    ctx.fillText(crowd + "%", right - 32, 13);
+    ctx.fillText(crowd + "%", rightClusterX + 140, statY2);
 
     ctx.fillStyle = "rgba(255,255,255,0.6)";
-    ctx.font = "9px ui-monospace, monospace";
-    ctx.fillText("2020: AI Winter", left, bottom + 14);
-    ctx.fillText("2023: Generative Summer", left + chartW * 0.35, bottom + 14);
-    ctx.fillText("2025: Agentic Autumn", left + chartW * 0.7, bottom + 14);
-    ctx.fillText("2026: ???", right - 30, bottom + 14);
+    ctx.font = (narrow ? "8px" : "9px") + " ui-monospace, monospace";
+    if (narrow) {
+      // Full "20XX: <label>" strings don't fit four-across on a phone
+      // width at any font size that stays legible, so the year prefixes
+      // drop and the labels alone are spaced proportionally to chartW.
+      ctx.fillText("AI Winter", left, bottom + 14);
+      ctx.fillText("Gen. Summer", left + chartW * 0.34, bottom + 14);
+      ctx.fillText("Agentic Autumn", left + chartW * 0.63, bottom + 14);
+      ctx.textAlign = "right";
+      ctx.fillText("2026?", right, bottom + 14);
+      ctx.textAlign = "left";
+    } else {
+      ctx.fillText("2020: AI Winter", left, bottom + 14);
+      ctx.fillText("2023: Generative Summer", left + chartW * 0.35, bottom + 14);
+      ctx.fillText("2025: Agentic Autumn", left + chartW * 0.7, bottom + 14);
+      ctx.fillText("2026: ???", right - 30, bottom + 14);
+    }
 
+    // On a wide chart these two callouts have room side by side; on a
+    // narrow one "WE ARE ALL GOING TO JAIL" is nearly as wide as the whole
+    // canvas and runs straight into "You did this." at the same baseline —
+    // both can be showing at once, since USER_HYPE > 5 implies > 2. Stack
+    // them instead of overlapping when narrow.
     if (USER_HYPE > 2) {
       ctx.fillStyle = "#ff6b6b";
       ctx.font = "italic 10px ui-monospace, monospace";
-      ctx.fillText("You did this.", right - 70, bottom - 5);
+      ctx.fillText("You did this.", narrow ? left : right - 70, narrow ? bottom - 18 : bottom - 5);
     }
     if (USER_HYPE > 5) {
       ctx.fillStyle = "#ff4757";
       ctx.font = "bold 11px ui-monospace, monospace";
-      ctx.fillText("WE ARE ALL GOING TO JAIL", left + chartW * 0.3, bottom - 5);
+      ctx.fillText("WE ARE ALL GOING TO JAIL", narrow ? left : left + chartW * 0.3, bottom - 5);
     }
 
     if (TIME > 1.3 && USER_HYPE > 3 && Math.random() < 0.003) {
@@ -298,6 +326,10 @@
     }
     tooltip.style.opacity = 0;
   });
+  // pointermove alone never fires once the pointer has left the widget
+  // entirely, so the tooltip was staying on screen indefinitely with
+  // whatever stale sector/value it last showed.
+  mount.addEventListener("pointerleave", function () { tooltip.style.opacity = 0; });
 }
 
   // ---------------------------------------------------------------
@@ -1588,12 +1620,17 @@
     }
 
     spacer(bar);
-    var pressureBtn = ctlButton(bar, "Pressure", "Seed a high-pressure intention front", function () { frontType = 1; });
-    var vacuumBtn = ctlButton(bar, "Vacuum", "Seed a low-pressure attention vacuum", function () { frontType = -1; });
-    ctlButton(bar, "Committee", "Seed a stationary committee system", function () { frontType = 0.28; });
-    setActive(pressureBtn, true);
-    pressureBtn.addEventListener("click", function () { setActive(pressureBtn, true); setActive(vacuumBtn, false); });
-    vacuumBtn.addEventListener("click", function () { setActive(pressureBtn, false); setActive(vacuumBtn, true); });
+    var pressureBtn = ctlButton(bar, "Pressure", "Seed a high-pressure intention front", function () { frontType = 1; selectMode(pressureBtn); });
+    var vacuumBtn = ctlButton(bar, "Vacuum", "Seed a low-pressure attention vacuum", function () { frontType = -1; selectMode(vacuumBtn); });
+    var committeeBtn = ctlButton(bar, "Committee", "Seed a stationary committee system", function () { frontType = 0.28; selectMode(committeeBtn); });
+    var modeBtns = [pressureBtn, vacuumBtn, committeeBtn];
+    // Committee only ever set frontType and never touched any button's
+    // active styling, so selecting it left Pressure looking permanently
+    // "on" no matter which mode was actually seeding fronts.
+    function selectMode(active) {
+      modeBtns.forEach(function (b) { setActive(b, b === active); });
+    }
+    selectMode(pressureBtn);
 
     function addFront(e) {
       var rect = canvasHost.getBoundingClientRect();
@@ -1738,6 +1775,7 @@
       input.type = "range"; input.min = 10; input.max = 100; input.value = guild.frequency;
       input.style.flex = "1";
       input.addEventListener("input", function () { guild.frequency = +input.value; });
+      guild.input = input;
       label.appendChild(name); label.appendChild(input); controls.appendChild(label);
     });
 
@@ -1750,7 +1788,14 @@
     spacer(bar);
     ctlButton(bar, "Phase-lock", "Ask every guild to agree, briefly", function () {
       var mean = guilds.reduce(function (sum, guild) { return sum + guild.frequency; }, 0) / guilds.length;
-      guilds.forEach(function (guild) { guild.frequency += (mean - guild.frequency) * 0.72; });
+      guilds.forEach(function (guild) {
+        guild.frequency += (mean - guild.frequency) * 0.72;
+        // The model converged but the slider never followed, so its stale
+        // displayed value would silently overwrite the converged frequency
+        // the instant the guild's own `input` listener next fired — the
+        // sliders are the visible half of "ask every guild to agree."
+        guild.input.value = guild.frequency;
+      });
     });
 
     var c = makeCanvas(canvasHost);
@@ -1987,19 +2032,30 @@
       zx.className = "archive-demo-screen";
       zx.style.cssText = "background:#111;color:#fff;border:10px solid #c9c4b6;font-family:monospace;text-align:center;";
       zx.innerHTML = '<div class="zx-loading-strip"></div><p style="margin:.8rem 0;">0 OK, 0:1</p>';
-      zx.appendChild(button('LOAD "FUTURE"', function () {
+      var zxTimer = null;
+      var loadBtn = button('LOAD "FUTURE"', function () {
+        // A click mid-load started a second, independent interval without
+        // clearing the first, so a just-resolved result would revert back
+        // to "Loading" on its own a moment later as the earlier timer
+        // caught up — looked exactly like a spontaneous glitch. Guard with
+        // a disabled button, same as the Win95 demo already does.
+        if (zxTimer) return;
+        loadBtn.disabled = true;
         var output = zx.querySelector("p");
         output.textContent = "Loading";
         var ticks = 0;
-        var timer = setInterval(function () {
+        zxTimer = setInterval(function () {
           ticks++;
           output.textContent = "Loading" + ".".repeat(ticks % 4);
           if (ticks === 11) {
-            clearInterval(timer);
+            clearInterval(zxTimer);
+            zxTimer = null;
+            loadBtn.disabled = false;
             output.textContent = Math.random() < 0.72 ? "R Tape loading error, 0:1" : "FUTURE loaded. Colour clash imminent.";
           }
         }, 150);
-      }));
+      });
+      zx.appendChild(loadBtn);
       mount.appendChild(zx);
     } else if (demo === "system7") {
       var mac = document.createElement("div");
@@ -2058,7 +2114,11 @@
       else if (Object.prototype.hasOwnProperty.call(responses, cmd)) {
         output.textContent += "\n" + responses[cmd] + "\n";
       } else if (cmd.indexOf("echo ") === 0) {
-        output.textContent += "\n" + input.value.slice(5) + "\n";
+        // Sliced from the untrimmed value at a fixed offset, so leading
+        // whitespace on the input shifted the cut point and ate that many
+        // characters off the front of the echoed text. Slice the trimmed
+        // value instead, which is what "echo " was matched against.
+        output.textContent += "\n" + input.value.trim().slice(5) + "\n";
       } else if (cmd === "") {
         output.textContent += "\n";
       } else {
@@ -2237,8 +2297,12 @@
       var cellW = gw / COLS, cellH = gh / ROWS;
       var holeW = Math.max(1.1, cellW * 0.5), holeH = Math.max(2.2, cellH * 0.62);
 
-      // the interpretation the keypunch prints along the top edge
-      ctx.font = Math.max(5, L.ch * 0.075) + "px ui-monospace, monospace";
+      // The interpretation the keypunch prints along the top edge. Sized
+      // off the card's height alone, this ran 2-3x wider than the column
+      // pitch (80 columns packed across the card width) and adjacent
+      // letters overdrew each other for any normal word — capped to
+      // whatever the per-column width actually allows.
+      ctx.font = Math.max(3, Math.min(L.ch * 0.075, cellW * 1.05)) + "px ui-monospace, monospace";
       ctx.fillStyle = "rgba(40,32,16,.85)";
       var text = interpretation();
       for (var t = 0; t < Math.min(text.length, COLS); t++) {
@@ -3067,7 +3131,10 @@
         return d < 5 ? 1 : 0;
       },
       Houndstooth: function (c, k) {
-        var block = (Math.floor(c / 2) + Math.floor(k / 3)) % 2;
+        // `block` is a Number, the right side a Boolean — strict `!==`
+        // between different types is always true regardless of value,
+        // so this punched every hole (100%) instead of a check pattern.
+        var block = (Math.floor(c / 2) + Math.floor(k / 3)) % 2 === 1;
         return block !== ((c + k) % 4 === 0) ? 1 : 0;
       },
       Honeycomb: function (c, k) {
@@ -3845,13 +3912,28 @@
         ctx.save();
         ctx.beginPath(); ctx.arc(L.mx, L.my, mr, 0, Math.PI * 2); ctx.clip();
         ctx.fillStyle = "#f6f0d8";
-        var k = Math.abs(Math.cos(signed * Math.PI / 180));
+        // Trace the lit limb's half-circle, then the terminator (an ellipse
+        // whose half-width rx is signed: positive gives a crescent bulging
+        // toward the bright limb, negative gives a gibbous bulging past
+        // center). One continuous path, no arc/ellipse angle bookkeeping.
+        var theta = Math.abs(signed) * Math.PI / 180;
+        var brightSide = signed >= 0 ? 1 : -1;
+        var rx = mr * Math.cos(theta);
         ctx.beginPath();
-        ctx.ellipse(L.mx + (signed > 0 ? 1 : -1) * mr * k * 0.0, L.my, mr, mr, 0,
-          signed > 0 ? -Math.PI / 2 : Math.PI / 2, signed > 0 ? Math.PI / 2 : (3 * Math.PI) / 2);
-        ctx.ellipse(L.mx, L.my, mr * k, mr, 0,
-          signed > 0 ? Math.PI / 2 : (3 * Math.PI) / 2, signed > 0 ? -Math.PI / 2 : Math.PI / 2,
-          (signed > 0) === (Math.cos(signed * Math.PI / 180) > 0));
+        var steps = 40, i, ang, x, y;
+        for (i = 0; i <= steps; i++) {
+          ang = -Math.PI / 2 + (i / steps) * Math.PI;
+          x = L.mx + brightSide * mr * Math.cos(ang);
+          y = L.my + mr * Math.sin(ang);
+          if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        }
+        for (i = 0; i <= steps; i++) {
+          ang = Math.PI / 2 - (i / steps) * Math.PI;
+          x = L.mx + brightSide * rx * Math.cos(ang);
+          y = L.my + mr * Math.sin(ang);
+          ctx.lineTo(x, y);
+        }
+        ctx.closePath();
         ctx.fill();
         ctx.restore();
         ctx.fillStyle = muted;
@@ -4057,12 +4139,33 @@
       ctx.stroke();
       ctx.setLineDash([]);
 
+      // Available horizontal room per station, so labels shrink/truncate
+      // rather than smearing into their neighbors at narrow widths.
+      function nearestGapPx(i) {
+        var xi = L.px(LOCI[i].x), gap = Infinity;
+        LOCI.forEach(function (other, j) {
+          if (j === i) return;
+          gap = Math.min(gap, Math.abs(L.px(other.x) - xi));
+        });
+        return gap === Infinity ? L.w : gap;
+      }
+      function fitText(text, maxWidth) {
+        if (ctx.measureText(text).width <= maxWidth) return text;
+        var lo = 0, hi = text.length;
+        while (lo < hi) {
+          var mid = (lo + hi + 1) >> 1;
+          if (ctx.measureText(text.slice(0, mid) + "…").width <= maxWidth) lo = mid; else hi = mid - 1;
+        }
+        return lo > 0 ? text.slice(0, lo) + "…" : "…";
+      }
+
       ctx.font = "10px ui-monospace, monospace";
       ctx.textAlign = "center";
       LOCI.forEach(function (lo, i) {
         var x = L.px(lo.x), y = L.py(lo.y);
         var revealed = phase === "furnish" || walked.indexOf(i) >= 0;
         var isNext = phase === "recall" && walked.length === i;
+        var room = Math.max(30, nearestGapPx(i) * 0.92);
         ctx.beginPath();
         ctx.arc(x, y, 13, 0, Math.PI * 2);
         ctx.fillStyle = placed[i] !== null && revealed ? "rgba(230,179,102,.22)" : "rgba(255,255,255,.05)";
@@ -4074,11 +4177,11 @@
         ctx.fillText(String(i + 1), x, y + 3.5);
         ctx.fillStyle = "rgba(255,255,255,.4)";
         ctx.font = "9px ui-monospace, monospace";
-        ctx.fillText(lo.n, x, y + 26);
+        ctx.fillText(fitText(lo.n, room), x, y + 26);
         if (placed[i] !== null && revealed) {
           ctx.fillStyle = accent;
           ctx.font = "bold 10px ui-monospace, monospace";
-          ctx.fillText(ITEMS[placed[i]], x, y - 19);
+          ctx.fillText(fitText(ITEMS[placed[i]], room), x, y - 19);
         }
         ctx.font = "10px ui-monospace, monospace";
       });
