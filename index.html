@@ -255,13 +255,6 @@
     <line x1="15.5" y1="8.5" x2="8.5" y2="15.5"/>
   </symbol>
 
-  <symbol id="icon-presenter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="2.5" y="4.5" width="19" height="13" rx="2"/>
-    <line x1="8" y1="21" x2="16" y2="21"/>
-    <line x1="12" y1="17.5" x2="12" y2="21"/>
-    <path d="M10.3 8.3v5.4l4.7-2.7z" fill="currentColor" stroke="none"/>
-  </symbol>
-
   <symbol id="icon-bulb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
     <path d="M9 18h6"/>
     <path d="M10 22h4"/>
@@ -272,9 +265,6 @@
 <header class="site-header">
   <a class="logo" href="#present">YEAR2525<span class="dot">.</span>XYZ</a>
   <output id="year-counter" class="year-counter" aria-live="polite" aria-label="Year of the exhibit you are looking at">2026</output>
-  <button id="presenter-toggle" class="header-btn" type="button" title="Presenter Mode" aria-label="Enter presenter mode" aria-pressed="false" hidden>
-    <svg class="header-btn-icon" aria-hidden="true" width="16" height="16"><use href="#icon-presenter"></use></svg>
-  </button>
   <nav class="dotnav" id="dotnav" aria-label="Timeline navigation">
     <a href="#present" data-label="Present Day"><svg class="dotnav-icon" aria-hidden="true" width="13" height="13"><use href="#icon-present"></use></svg></a>
     <a href="#era-2525" data-label="2525 — The Charter Century"><svg class="dotnav-icon" aria-hidden="true" width="13" height="13"><use href="#icon-2525"></use></svg></a>
@@ -288,13 +278,6 @@
     <a href="#beyond" data-label="Beyond 10,000"><svg class="dotnav-icon" aria-hidden="true" width="13" height="13"><use href="#icon-beyond"></use></svg></a>
   </nav>
 </header>
-
-<div id="presenter-controls" class="presenter-controls" hidden>
-  <button id="presenter-prev" type="button" aria-label="Previous slide">‹</button>
-  <span id="presenter-counter" class="presenter-counter">1 / 1</span>
-  <button id="presenter-next" type="button" aria-label="Next slide">›</button>
-</div>
-<button id="presenter-exit" class="presenter-exit" type="button" aria-label="Exit presenter mode" hidden>×</button>
 
 <main id="timeline">
 
@@ -988,8 +971,6 @@
   </section>
 
 </main>
-
-<div id="presenter-virtual-slide" class="era" hidden></div>
 
 <footer class="site-footer">
   <p>YEAR2525.XYZ — a fictional future history and deep archive of applications. Every named product, era, and terminology on this site is invented. No forecast is intended, except possibly by accident.</p>

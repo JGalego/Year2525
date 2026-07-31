@@ -4,13 +4,11 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
-/* Toggling which <main> is hidden changes the document's height by tens
-   of thousands of pixels in one frame. Left to itself, the browser's
-   scroll-anchoring heuristic "corrects" for that shift by silently
-   re-adjusting scrollY to whatever it thinks preserves the old visual
-   position — overriding an explicit scrollTo(0,0) and landing the page
-   somewhere arbitrary in the newly-shown timeline. This is exactly the
-   kind of full-page mode swap that heuristic isn't meant for. */
+/* Widgets mount lazily as they scroll into view, which changes the
+   document's height underneath a scroll already in progress. The
+   browser's scroll-anchoring heuristic "corrects" for that by silently
+   re-adjusting scrollY, which on a 49,000px page reads as the content
+   sliding out from under you. Opt out and let the scroll be literal. */
 html, body { overflow-anchor: none; }
 
 :root {
@@ -100,23 +98,6 @@ code { font-family: var(--font-mono); background: rgba(255,255,255,0.08); paddin
   user-select: none;
 }
 
-.header-btn {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--muted);
-  border-radius: 999px;
-  width: 30px; height: 30px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  transition: color .3s ease, border-color .3s ease;
-  flex: none;
-}
-.header-btn:hover, .header-btn:focus-visible, .header-btn[aria-pressed="true"] {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-.header-btn-icon { width: 16px; height: 16px; flex: none; }
-
 .dotnav {
   margin-left: auto;
   display: none;
@@ -170,140 +151,6 @@ code { font-family: var(--font-mono); background: rgba(255,255,255,0.08); paddin
 /* The dot nav indexes the forward gallery only; once you are walking
    back through the other wing there is nothing for it to point at. */
 body[data-past] .dotnav { display: none; }
-
-/* ---------------------------- presenter mode ---------------------------- */
-
-.presenter-controls {
-  position: fixed;
-  bottom: 1.25rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  gap: .75rem;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: .4rem .5rem;
-  box-shadow: 0 6px 24px rgba(0,0,0,.35);
-  font-family: var(--font-mono);
-  font-size: .8rem;
-  transition: var(--transition-era);
-}
-.presenter-controls button {
-  background: none;
-  border: 1px solid var(--border);
-  color: var(--fg);
-  border-radius: 50%;
-  width: 30px; height: 30px;
-  font-size: 1rem;
-  line-height: 1;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: color .2s ease, border-color .2s ease;
-}
-.presenter-controls button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
-.presenter-controls button:disabled { opacity: .35; cursor: default; }
-.presenter-counter { color: var(--muted); min-width: 4.5em; text-align: center; user-select: none; }
-
-.presenter-exit {
-  position: fixed;
-  top: 1rem; right: 1rem;
-  z-index: 200;
-  width: 34px; height: 34px;
-  border-radius: 50%;
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  color: var(--fg);
-  font-size: 1.15rem;
-  line-height: 1;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: color .2s ease, border-color .2s ease;
-}
-.presenter-exit:hover { color: var(--accent); border-color: var(--accent); }
-
-body.presenter-mode { overflow: hidden; }
-body.presenter-mode .site-footer { display: none; }
-body.presenter-mode .dotnav { display: none !important; }
-body.presenter-mode .year-counter { cursor: default; }
-
-body.presenter-mode #timeline {
-  display: block !important;
-}
-body.presenter-mode .era,
-body.presenter-mode .past,
-body.presenter-mode .past-intro {
-  display: none !important;
-}
-body.presenter-mode .era.presenter-current,
-body.presenter-mode .past.presenter-current,
-body.presenter-mode .past-intro.presenter-current {
-  display: flex !important;
-  position: fixed;
-  inset: 0;
-  z-index: 5;
-  overflow-y: auto;
-  border-bottom: none;
-  /* Normally a section just sits on the body's background in the flow.
-     Once both <main>s collapse to zero height behind a fixed slide, the
-     footer moves up to y=0 and shows through the slide's transparent
-     padding — so the current slide needs its own opaque background. */
-  background: var(--bg);
-}
-/* Centered content taller than the viewport overflows equally above and
-   below, making the true top unreachable via scrollTop=0. Slides are
-   short enough now (one subsection or card at a time) that this is rare,
-   so default to centered — JS measures each slide after it's shown and
-   adds .presenter-overflow only when it genuinely doesn't fit, rather
-   than top-aligning everything unconditionally. .era is a row-direction
-   flex container (its vertical axis is the cross axis: align-items);
-   .past/.past-intro are column-direction (vertical axis is the main
-   axis: justify-content) — same fix, different property per axis. */
-body.presenter-mode .era.presenter-current.presenter-overflow { align-items: flex-start !important; }
-body.presenter-mode .past.presenter-current.presenter-overflow,
-body.presenter-mode .past-intro.presenter-current.presenter-overflow { justify-content: flex-start !important; }
-
-/* A single reusable slide for the per-subsection breakdown of a forward
-   era (title / Civilisation / Successor / Technology / Example /
-   Intelligence / Day-in-life / Creation / Historical Importance) — its
-   content is swapped in per slide rather than cloning 90 static sections. */
-#presenter-virtual-slide { text-align: left; }
-.presenter-sub { max-width: var(--maxw); margin: 0 auto; width: 100%; }
-.presenter-sub-title { text-align: left; }
-.presenter-sub-title .era-icon { width: 3rem; height: 3rem; margin-bottom: 1.5rem; }
-.presenter-sub-title .era-art { max-width: min(100%, 780px); margin: 1.5rem auto 0; }
-.presenter-sub-heading {
-  font-family: var(--font-display);
-  font-size: clamp(2rem, 5.5vw, 3.4rem);
-  color: var(--accent2);
-  margin-bottom: .7em;
-}
-.presenter-sub-body {
-  font-size: clamp(1.15rem, 2.3vw, 1.55rem);
-  line-height: 1.65;
-  max-width: 38em;
-}
-.presenter-sub-card { max-width: 42em; margin: 0 auto; }
-.presenter-sub-card .callout,
-.presenter-sub-card .example-card,
-.presenter-sub-card .historical-note {
-  font-size: 1.1rem;
-  margin-bottom: 0;
-}
-.presenter-sub-card .day-in-life { border-top: none; padding-top: 0; margin-top: 0; font-size: 1.1rem; }
-
-body.presenter-mode .era.presenter-current.presenter-widget-only > .era-inner > *:not(.interactive-block):not(.changelog) {
-  display: none !important;
-}
-body.presenter-mode .era.presenter-current.presenter-widget-only > .era-inner {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  height: 100%;
-}
-body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05rem; }
 
 /* ---------------------------- era layout ---------------------------- */
 

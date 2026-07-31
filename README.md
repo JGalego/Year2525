@@ -26,5 +26,5 @@ Then open `http://localhost:8000`.
 
 - `index.html` — every exhibit, in one `<main>`, in scroll order
 - `css/style.css` — base layout plus a distinct visual theme per era
-- `js/main.js` — scroll-driven era theming, the year readout, dot nav, presenter mode, typed easter eggs
+- `js/main.js` — scroll-driven era theming, the year readout, dot nav, typed easter eggs
 - `js/widgets.js` — the per-era interactive experiences (canvas + DOM), lazily initialized
