@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>OG card source — YEAR2525.XYZ</title>
+<!--
+  Source for /og.jpg, the link-preview image. The site ships no raster
+  assets, so this composes one from the page's own procedural artwork:
+  the intro diorama, rendered by js/artwork.js, under the real wordmark
+  and headline in the present-day palette.
+
+  To regenerate, screenshot this file at exactly 1200x630 and save it as
+  og.jpg in the repo root. JPEG rather than PNG: the diorama is mostly
+  smooth gradient, so quality 92 is visually identical at a sixth of the
+  bytes (96 KB against 560 KB). Any headless browser will do, e.g.
+
+    npx playwright screenshot --viewport-size=1200,630 \
+      tools/og-card.html og.jpg
+
+  Not part of the site — nothing links to it and it ships no build step.
+-->
+<style>
+  /* The present-day (light) palette, so the card matches the room the
+     link actually opens in. */
+  :root {
+    --bg: #f7f6f2; --bg2: #ffffff; --fg: #1a1c20; --muted: #6b7280;
+    --accent: #2563eb; --accent2: #db2777; --border: rgba(0,0,0,0.1);
+    --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Courier New", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-display);
+  }
+  .card { width: 1200px; height: 630px; display: flex; flex-direction: column; }
+  .top { padding: 40px 56px 14px; }
+  .mark { font-weight: 800; letter-spacing: .02em; font-size: 21px; line-height: 1.2; }
+  .mark .dot { color: var(--accent); }
+  h1 {
+    font-size: 62px; font-weight: 650; letter-spacing: -0.02em;
+    line-height: 1.02; margin-top: 12px;
+  }
+  .sub { color: var(--muted); font-size: 20px; margin-top: 10px; }
+  /* Everything left over goes to the diorama. At roughly 2.7:1 against a
+     2.5:1 artboard it crops about 10 units off the top and bottom, which
+     the scene is composed to survive. */
+  .art { flex: 1; width: 100%; overflow: hidden; color: var(--accent); }
+  .art svg { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="top">
+    <div class="mark">YEAR2525<span class="dot">.</span>XYZ</div>
+    <h1>Software Ends Here</h1>
+    <p class="sub">A speculative museum of what comes after software.</p>
+  </div>
+  <div class="art" data-art="intro"></div>
+</div>
+<script src="../js/artwork.js"></script>
+</body>
+</html>
