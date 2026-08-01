@@ -308,44 +308,74 @@
   // ---------------------------------------------------------------
   // 4545 — Cast a Folding into the room's matter budget
   // ---------------------------------------------------------------
-  // The previous version drew a target silhouette and asked you to click
-  // its cells in one at a time. That is exactly the thing this era says
-  // nobody does any more — it was tracing a stencil, i.e. writing the
-  // instructions by hand. Here you state an intention instead; a Loom
-  // searches a space of configurations for one that holds, and you pay for
-  // it out of a fixed ambient matter budget, borrowing mass back from
-  // whatever is already folded when the room runs short.
+  // The label promises that you state an intention and the Loom searches
+  // for a configuration that holds. The previous version did not search:
+  // each intention was a hardcoded footprint, byte-identical every cast,
+  // and the three constraints only moved the price and the fault dice. So
+  // the sliders were decoration and the "search" animation was noise over
+  // a lookup.
+  //
+  // An intention is now a specification — the surface that must exist,
+  // where load is applied to it, and which ground it may stand on — and
+  // the structure between them is found. Every load point routes down to
+  // permitted ground through a cost field in which already-committed
+  // matter is cheap, so routes converge into a few trunks rather than
+  // dropping a leg under every load. Legs, arches and bracing are not
+  // authored anywhere; they are just what the cheapest shared route
+  // happens to look like under the constraints you set.
   function loomFold(mount) {
-    var COLS = 30, ROWS = 9, BUDGET = 84, TOP = 30;
+    var COLS = 46, ROWS = 17, BUDGET = 150, TOP = 30;
+    var FLOOR = ROWS - 1;
+    function key(x, y) { return y * COLS + x; }
+    function span(x0, y, n) {
+      var a = [];
+      for (var i = 0; i < n; i++) a.push([x0 + i, y]);
+      return a;
+    }
+    function every(cells, n) {
+      return cells.filter(function (_, i) { return i % n === 0; });
+    }
 
-    // Bottom-aligned footprints. Cost is just the cell count, so the
-    // budget arithmetic can never drift out of sync with what's drawn.
-    var SHAPES = [
-      { name: "Lamp",  cells: [[0,0],[1,0],[2,0],[1,1],[1,2],[0,3],[1,3],[2,3]] },
-      { name: "Chair", cells: [[3,0],[3,1],[3,2],[0,3],[1,3],[2,3],[3,3],[0,4],[3,4]] },
-      { name: "Table", cells: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[0,1],[5,1],[0,2],[5,2]] },
-      { name: "Bridge", cells: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[0,1],[3,1],[6,1],[0,2],[6,2]] },
-      { name: "Canopy", cells: [[0,0],[1,0],[2,0],[3,0],[4,0],[1,1],[3,1],[1,2],[3,2],[1,3],[3,3]] },
-      { name: "Wall",  cells: (function () {
-          var a = [];
-          for (var y = 0; y < 7; y++) for (var x = 0; x < 3; x++) a.push([x, y]);
-          return a;
-        })() }
+    var INTENTIONS = [
+      { name: "Lamp", w: 5, make: function (x0) {
+          var head = span(x0, FLOOR - 13, 5).concat(span(x0 + 1, FLOOR - 12, 3));
+          return { deck: head, loads: every(span(x0, FLOOR - 13, 5), 2) };
+        } },
+      { name: "Chair", w: 10, make: function (x0) {
+          var seat = span(x0, FLOOR - 6, 8), back = [];
+          for (var y = FLOOR - 13; y < FLOOR - 6; y++) back.push([x0 + 8, y]);
+          return { deck: seat.concat(back),
+            loads: every(seat, 2).concat([[x0 + 8, FLOOR - 13], [x0 + 8, FLOOR - 10]]) };
+        } },
+      { name: "Table", w: 13, make: function (x0) {
+          var top = span(x0, FLOOR - 9, 13);
+          return { deck: top, loads: every(top, 2) };
+        } },
+      { name: "Bridge", w: 21, make: function (x0) {
+          // The river is ground the Loom may not stand on. Nothing tells it
+          // to build an arch; an arch is simply the cheapest way across.
+          var deck = span(x0, FLOOR - 8, 21), river = [];
+          for (var i = 5; i <= 15; i++) river.push(x0 + i);
+          return { deck: deck, loads: every(deck, 2), noGround: river };
+        } },
+      { name: "Canopy", w: 15, make: function (x0) {
+          var top = span(x0, FLOOR - 14, 15);
+          return { deck: top, loads: every(top, 3) };
+        } },
+      { name: "Wall", w: 10, make: function (x0) {
+          var top = span(x0, FLOOR - 13, 10);
+          return { deck: top, loads: top };
+        } }
     ];
-    SHAPES.forEach(function (s) {
-      s.cost = s.cells.length;
-      s.w = Math.max.apply(null, s.cells.map(function (c) { return c[0]; })) + 1;
-      s.h = Math.max.apply(null, s.cells.map(function (c) { return c[1]; })) + 1;
-    });
 
     var wrap = document.createElement("div");
     wrap.style.cssText = "width:100%;text-align:left;padding:.5rem;";
     var bar = controlBar();
     var constraints = document.createElement("div");
-    constraints.style.cssText = "display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;margin:.25rem 0 .7rem;font:11px var(--font-mono);";
+    constraints.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.5rem .75rem;margin:.25rem 0 .7rem;font:11px var(--font-mono);";
     var canvasHost = document.createElement("div");
-    canvasHost.style.cssText = "width:100%;height:190px;";
-    var status = statusLine(3.2);
+    canvasHost.style.cssText = "width:100%;height:232px;";
+    var status = statusLine(3.4);
     wrap.appendChild(bar);
     wrap.appendChild(constraints);
     wrap.appendChild(canvasHost);
@@ -354,12 +384,13 @@
 
     var requirements = { load: 55, lifetime: 50, porosity: 30 };
     [
-      { key: "load", label: "Load" },
-      { key: "lifetime", label: "Lifetime" },
-      { key: "porosity", label: "Porosity" }
+      { key: "load", label: "Load", hint: "How much weight the surface must carry — thickens the busiest routes" },
+      { key: "lifetime", label: "Lifetime", hint: "How long it must stand — buys a second, independent route for each load" },
+      { key: "porosity", label: "Porosity", hint: "How much void is acceptable — cheapens shared matter, so routes merge" }
     ].forEach(function (spec) {
       var label = document.createElement("label");
       label.style.cssText = "display:grid;gap:.2rem;";
+      label.title = spec.hint;
       var readout = document.createElement("span");
       readout.textContent = spec.label + " " + requirements[spec.key] + "%";
       var input = document.createElement("input");
@@ -373,79 +404,183 @@
       constraints.appendChild(label);
     });
 
-    var objects = [];        // { name, cells:[[gx,gy]], mass, x0, x1, faults:[i] }
-    var searching = null;    // { shape, place, t0 }
+    var objects = [];        // { name, cells, traffic, mass, x0, x1, faults, legs, arch }
+    var searching = null;
     var settleBtn = null;
 
-    function used() {
-      return objects.reduce(function (a, o) { return a + o.mass; }, 0);
-    }
-    function costFor(shape) {
-      var structural = 0.7 + requirements.load / 170 + requirements.lifetime / 260;
-      var voidCredit = requirements.porosity / 330;
-      return Math.max(shape.cost, Math.ceil(shape.cost * (structural - voidCredit)));
-    }
-    function faulted() {
-      return objects.filter(function (o) { return o.faults.length; });
-    }
-    function occupiedCols() {
-      return objects.map(function (o) { return [o.x0, o.x1]; });
-    }
-    function findPlacement(shape) {
-      var spans = occupiedCols();
-      for (var x = 0; x + shape.w <= COLS; x++) {
-        var clash = spans.some(function (s) { return x <= s[1] + 1 && x + shape.w - 1 >= s[0] - 1; });
+    function used() { return objects.reduce(function (a, o) { return a + o.mass; }, 0); }
+    function faulted() { return objects.filter(function (o) { return o.faults.length; }); }
+    function findPlacement(w) {
+      for (var x = 0; x + w <= COLS; x++) {
+        var clash = objects.some(function (o) { return x <= o.x1 + 1 && x + w - 1 >= o.x0 - 1; });
         if (!clash) return x;
       }
       return -1;
     }
 
-    function fold(shape) {
+    // Binary heap, so a route is a few thousand operations rather than a
+    // few hundred thousand — this runs synchronously on a click.
+    function Heap() { this.a = []; }
+    Heap.prototype.push = function (d, v) {
+      var a = this.a, i = a.length;
+      a.push([d, v]);
+      while (i > 0) {
+        var p = (i - 1) >> 1;
+        if (a[p][0] <= a[i][0]) break;
+        var t = a[p]; a[p] = a[i]; a[i] = t; i = p;
+      }
+    };
+    Heap.prototype.pop = function () {
+      var a = this.a, top = a[0], last = a.pop();
+      if (a.length) {
+        a[0] = last;
+        for (var i = 0; ;) {
+          var l = 2 * i + 1, r = l + 1, m = i;
+          if (l < a.length && a[l][0] < a[m][0]) m = l;
+          if (r < a.length && a[r][0] < a[m][0]) m = r;
+          if (m === i) break;
+          var t = a[m]; a[m] = a[i]; a[i] = t; i = m;
+        }
+      }
+      return top;
+    };
+
+    function search(spec) {
+      var traffic = Object.create(null);
+      var order = [];
+      function put(x, y, n) {
+        var k = key(x, y);
+        if (traffic[k] === undefined) { traffic[k] = 0; order.push([x, y]); }
+        traffic[k] += n === undefined ? 1 : n;
+      }
+      spec.deck.forEach(function (c) { put(c[0], c[1], 2); });
+
+      var noGround = Object.create(null);
+      (spec.noGround || []).forEach(function (x) { noGround[x] = true; });
+      // Shared matter gets cheaper as porosity rises, so routes bundle
+      // harder and leave more of the room empty.
+      var reuse = 0.5 - requirements.porosity / 250;
+
+      function route(from, avoid) {
+        var n = COLS * ROWS;
+        var dist = new Float64Array(n).fill(Infinity);
+        var prev = new Int32Array(n).fill(-1);
+        var done = new Uint8Array(n);
+        var sk = key(from[0], from[1]);
+        dist[sk] = 0;
+        var heap = new Heap();
+        heap.push(0, sk);
+        var best = -1;
+        while (heap.a.length) {
+          var top = heap.pop(), u = top[1];
+          if (done[u]) continue;
+          done[u] = 1;
+          var ux = u % COLS, uy = (u / COLS) | 0;
+          if (uy === FLOOR && !noGround[ux]) { best = u; break; }
+          for (var dy = -1; dy <= 1; dy++) {
+            for (var dx = -1; dx <= 1; dx++) {
+              if (!dx && !dy) continue;
+              var nx = ux + dx, ny = uy + dy;
+              if (nx < 0 || nx >= COLS || ny < 0 || ny >= ROWS) continue;
+              var nk = key(nx, ny);
+              if (done[nk]) continue;
+              var c = traffic[nk] !== undefined ? reuse : 1;
+              if (avoid && avoid[nk]) c += 2.4;   // force the brace onto its own line
+              if (ny <= uy) c += 0.3;             // mild preference for going down
+              var nd = dist[u] + c * ((dx && dy) ? 1.414 : 1);
+              if (nd < dist[nk]) { dist[nk] = nd; prev[nk] = u; heap.push(nd, nk); }
+            }
+          }
+        }
+        if (best < 0) return null;
+        var path = [];
+        for (var p = best; p !== -1 && p !== sk; p = prev[p]) path.push(p);
+        return path;
+      }
+
+      spec.loads.forEach(function (L) {
+        var p1 = route(L, null);
+        if (p1) p1.forEach(function (k) { put(k % COLS, (k / COLS) | 0); });
+        if (requirements.lifetime > 45) {
+          var avoid = Object.create(null);
+          if (p1) p1.forEach(function (k) { avoid[k] = true; });
+          var p2 = route(L, avoid);
+          if (p2) p2.forEach(function (k) { put(k % COLS, (k / COLS) | 0); });
+        }
+      });
+
+      // Load thickens whatever turned out to be carrying the most.
+      var thickenAt = Math.max(1, Math.round(6 - requirements.load / 20));
+      Object.keys(traffic).forEach(function (k) {
+        if (traffic[k] < thickenAt) return;
+        var x = +k % COLS, y = (+k / COLS) | 0;
+        [-1, 1].forEach(function (d) {
+          if (x + d >= 0 && x + d < COLS && traffic[key(x + d, y)] === undefined) put(x + d, y, 0.5);
+        });
+      });
+
+      // Ground contacts, counted as contiguous runs along the floor — the
+      // legs are a result, not a parameter, which is the whole point.
+      var legs = 0, run = false;
+      for (var gx = 0; gx < COLS; gx++) {
+        var here = traffic[key(gx, FLOOR)] !== undefined;
+        if (here && !run) legs++;
+        run = here;
+      }
+      return { cells: order, traffic: traffic, mass: order.length, legs: legs };
+    }
+
+    function fold(intent) {
       if (searching) return;
-      var cost = costFor(shape);
-      if (cost > BUDGET) {
-        say("<b>" + shape.name + "</b> needs " + cost + " units under these constraints. The room's entire budget is " + BUDGET + ". Not castable here.");
+      var place = findPlacement(intent.w);
+      var borrowed = [];
+      while (place < 0 && objects.length) { borrowed.push(objects.shift().name); place = findPlacement(intent.w); }
+      if (place < 0) { say("No floor left wide enough to hold a <b>" + intent.name + "</b>."); return; }
+
+      var result = search(intent.make(place));
+      if (result.mass > BUDGET) {
+        say("<b>" + intent.name + "</b> resolves at " + result.mass + " units under these constraints. The room's entire budget is " +
+          BUDGET + ". Loosen something.");
         return;
       }
-      // Borrow mass back from the oldest folds until there is room, both in
-      // the matter budget and along the floor.
-      var borrowed = [];
-      var place = findPlacement(shape);
-      while ((BUDGET - used() < cost || place < 0) && objects.length) {
+      while (BUDGET - used() < result.mass && objects.length) {
         borrowed.push(objects.shift().name);
-        place = findPlacement(shape);
       }
-      if (place < 0) { say("No floor left to hold a <b>" + shape.name + "</b>."); return; }
-      var complexity = 700 + requirements.load * 5 + requirements.lifetime * 4 + requirements.porosity * 3;
-      searching = { shape: shape, place: place, t0: performance.now(), borrowed: borrowed, cost: cost, duration: complexity };
+      searching = {
+        intent: intent, place: place, result: result, borrowed: borrowed,
+        t0: performance.now(), revealed: 0,
+        duration: 620 + result.mass * 14
+      };
     }
 
     function commit() {
-      var shape = searching.shape, place = searching.place;
-      var top = ROWS - shape.h;
-      var cells = shape.cells.map(function (c) { return [place + c[0], top + c[1]]; });
-      var obj = { name: shape.name, cells: cells, mass: searching.cost, x0: place, x1: place + shape.w - 1, faults: [] };
-      // A folding fault: matter caught between two stable configurations.
-      var faultRisk = 0.06 + requirements.load / 500 + requirements.porosity / 700 - requirements.lifetime / 850;
+      var s = searching, r = s.result;
+      var obj = {
+        name: s.intent.name, cells: r.cells, traffic: r.traffic, mass: r.mass,
+        legs: r.legs, x0: s.place, x1: s.place + s.intent.w - 1, faults: []
+      };
+      var faultRisk = 0.05 + requirements.load / 520 + requirements.porosity / 640 - requirements.lifetime / 800;
       if (Math.random() < faultRisk) {
-        var pool = cells.map(function (_, i) { return i; });
+        var pool = r.cells.map(function (_, i) { return i; });
         for (var k = 0; k < 2 && pool.length; k++) {
           obj.faults.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
         }
       }
       objects.push(obj);
-      var borrowed = searching.borrowed;
+      var borrowed = s.borrowed;
       searching = null;
-      report(obj, borrowed);
-    }
 
-    function report(obj, borrowed) {
-      var lines = [];
-      lines.push("<b>" + obj.name + "</b> cast — " + obj.mass + " matter units across " + obj.cells.length + " active cells. " +
-        (BUDGET - used()) + " of " + BUDGET + " left in the room's ambient budget.");
-      if (borrowed && borrowed.length) {
-        lines.push("Borrowed the mass from the " + borrowed.join(" and the ") +
-          ". " + (borrowed.length > 1 ? "They" : "It") + " will have to wait its turn.");
+      var lines = ["<b>" + obj.name + "</b> holds — " + obj.mass + " units, " + obj.legs +
+        " ground contact" + (obj.legs === 1 ? "" : "s") + ". " + (BUDGET - used()) + " of " + BUDGET + " left."];
+      if (obj.name === "Bridge") {
+        lines.push("Nothing specified an arch. It is only the cheapest way to reach ground that is not the river.");
+      } else if (requirements.lifetime > 45) {
+        lines.push("Lifetime bought every load a second, independent route — the bracing is what redundancy looks like.");
+      } else if (requirements.porosity > 60) {
+        lines.push("At this porosity shared matter is cheap, so the routes bundled into few trunks and left the rest as void.");
+      }
+      if (borrowed.length) {
+        lines.push("Borrowed the mass from the " + borrowed.join(" and the ") + ".");
       }
       if (obj.faults.length) {
         lines.push('<span style="color:#f0a35e;">Folding fault — ' + obj.faults.length +
@@ -454,12 +589,13 @@
       say(lines.join("<br>"));
       syncSettle();
     }
+
     function say(html) { status.innerHTML = html; }
     function syncSettle() { settleBtn.disabled = !faulted().length; }
 
-    SHAPES.forEach(function (s) {
-      ctlButton(bar, s.name, "Intend a " + s.name.toLowerCase() + " under the current constraints",
-        function () { fold(s); });
+    INTENTIONS.forEach(function (intent) {
+      ctlButton(bar, intent.name, "Intend a " + intent.name.toLowerCase() + " — the Loom finds the structure",
+        function () { fold(intent); });
     });
     spacer(bar);
     settleBtn = ctlButton(bar, "Settle", "Re-search a faulted folding until it holds", function () {
@@ -470,86 +606,99 @@
       syncSettle();
     });
     ctlButton(bar, "Reset", "Dissolve everything back to ambient matter", function () {
-      objects = [];
-      searching = null;
+      objects = []; searching = null;
       say("Room returned to ambient matter. " + BUDGET + " of " + BUDGET + " units free.");
       syncSettle();
     });
     syncSettle();
     say("Nothing folded. " + BUDGET + " of " + BUDGET + " units of ambient matter free.<br>" +
-      "Pick an intention — you never say how, only what.");
+      "State an intention — you never say how, only what. Change the constraints and the same intention resolves differently.");
 
+    // On a phone the cell size is limited by width, not height, so a fixed
+    // canvas leaves a third of itself empty above the structure. Size the
+    // host to the grid it actually has to hold.
+    function sizeHost() {
+      var cs = Math.min((canvasHost.clientWidth || 320) / COLS, 11);
+      canvasHost.style.height = Math.round(TOP + 14 + ROWS * cs) + "px";
+    }
+    sizeHost();
     var c = makeCanvas(canvasHost);
     var ctx = c.ctx;
+    window.addEventListener("resize", function () { sizeHost(); c.resize(); });
 
-    function cell(cw, ch, gx, gy, color, alpha) {
+    function layout() {
+      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 232;
+      var cs = Math.min(w / COLS, (h - TOP - 14) / ROWS);
+      return { w: w, h: h, cs: cs, ox: (w - cs * COLS) / 2, oy: TOP + (h - TOP - 14 - cs * ROWS) };
+    }
+    function cell(L, gx, gy, color, alpha) {
       ctx.globalAlpha = alpha;
       ctx.fillStyle = color;
-      ctx.fillRect(gx * cw + 0.8, TOP + gy * ch + 0.8, cw - 1.6, ch - 1.6);
+      ctx.fillRect(L.ox + gx * L.cs + 0.6, L.oy + gy * L.cs + 0.6, L.cs - 1.2, L.cs - 1.2);
       ctx.globalAlpha = 1;
     }
 
     function frame(now) {
-      var w = canvasHost.clientWidth, h = canvasHost.clientHeight || 190;
-      var cw = w / COLS, ch = (h - TOP - 10) / ROWS;
+      var L = layout();
       var accent = cssVar("--accent", "#f0b429");
       var accent2 = cssVar("--accent2", "#f97316");
-      ctx.clearRect(0, 0, w, h);
+      ctx.clearRect(0, 0, L.w, L.h);
 
-      // budget bar
-      var u = used() + (searching ? searching.cost : 0);
+      var u = used() + (searching ? searching.result.mass : 0);
       ctx.font = "9px ui-monospace, monospace";
       ctx.fillStyle = cssVar("--muted", "#a8977a");
       ctx.fillText("AMBIENT MATTER BUDGET", 1, 9);
       ctx.fillStyle = "rgba(255,255,255,0.08)";
-      ctx.fillRect(0, 14, w, 7);
+      ctx.fillRect(0, 14, L.w, 7);
       ctx.fillStyle = accent;
       ctx.globalAlpha = 0.85;
-      ctx.fillRect(0, 14, w * Math.min(1, u / BUDGET), 7);
+      ctx.fillRect(0, 14, L.w * Math.min(1, u / BUDGET), 7);
       ctx.globalAlpha = 1;
 
-      // floor
       ctx.strokeStyle = "rgba(255,255,255,0.18)";
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(0, TOP + ROWS * ch + 0.5);
-      ctx.lineTo(w, TOP + ROWS * ch + 0.5);
+      ctx.moveTo(0, L.oy + ROWS * L.cs + 0.5);
+      ctx.lineTo(L.w, L.oy + ROWS * L.cs + 0.5);
       ctx.stroke();
 
-      objects.forEach(function (o) {
-        o.cells.forEach(function (p, i) {
-          var isFault = o.faults.indexOf(i) >= 0;
-          if (isFault) {
-            // oscillating between the two configurations it is stuck between
+      function drawCells(cells, traffic, faults, upto) {
+        var n = upto === undefined ? cells.length : upto;
+        for (var i = 0; i < n; i++) {
+          var p = cells[i];
+          if (faults && faults.indexOf(i) >= 0) {
             var osc = 0.5 + 0.5 * Math.sin(now / 90);
-            cell(cw, ch, p[0], p[1], "#f0a35e", 0.35 + osc * 0.6);
+            cell(L, p[0], p[1], "#f0a35e", 0.35 + osc * 0.6);
           } else {
-            cell(cw, ch, p[0], p[1], accent, 0.9);
+            // Brightness reads load: the trunks everything routed through
+            // are the ones actually carrying the room.
+            var t = traffic[key(p[0], p[1])] || 1;
+            cell(L, p[0], p[1], accent, Math.min(0.95, 0.42 + t * 0.13));
           }
-        });
-      });
+        }
+      }
+
+      objects.forEach(function (o) { drawCells(o.cells, o.traffic, o.faults); });
 
       if (searching) {
-        var t = Math.min(1, (now - searching.t0) / searching.duration);
-        var shape = searching.shape, place = searching.place;
-        var top = ROWS - shape.h;
-        // The search: candidate configurations condensing out of noise as
-        // the Loom's energy falls.
-        shape.cells.forEach(function (p) {
-          if (Math.random() < t * t) cell(cw, ch, place + p[0], top + p[1], accent, 0.85);
-        });
-        var noise = Math.round((1 - t) * 26);
-        for (var n = 0; n < noise; n++) {
-          var nx = place + Math.floor(Math.random() * shape.w);
-          var ny = top + Math.floor(Math.random() * shape.h);
-          cell(cw, ch, nx, ny, accent2, 0.25 + Math.random() * 0.4);
+        var s = searching;
+        // Clamped at both ends. A rAF callback is handed the timestamp
+        // captured at the start of its frame, but t0 is stamped by a click
+        // handler dispatched inside that same frame — so on the first
+        // frame after a cast, now - t0 is negative, and an unclamped t
+        // indexes off the front of the reveal array.
+        var t = Math.max(0, Math.min(1, (now - s.t0) / s.duration));
+        var upto = Math.floor(t * s.result.cells.length);
+        drawCells(s.result.cells, s.result.traffic, null, upto);
+        // The frontier: the routes still being resolved.
+        for (var i = upto; i < Math.min(s.result.cells.length, upto + 7); i++) {
+          var p = s.result.cells[i];
+          cell(L, p[0], p[1], accent2, 0.15 + Math.random() * 0.4);
         }
         ctx.font = "10px ui-monospace, monospace";
         ctx.fillStyle = accent2;
-        var candidates = Math.round(18000 + requirements.load * 731 + requirements.lifetime * 419 + requirements.porosity * 883);
-        var stability = Math.round(t * (82 + requirements.lifetime * 0.16 - requirements.porosity * 0.12));
-        ctx.fillText("candidates " + candidates.toLocaleString() + " · stability " + stability + "% · entropy " + (100 - Math.round(t * 91)),
-          place * cw, TOP + top * ch - 4);
+        var routed = Math.round(t * s.result.mass);
+        ctx.fillText("searching · " + routed + "/" + s.result.mass + " units placed", L.ox + 2, TOP - 6);
         if (t >= 1) commit();
       }
       requestAnimationFrame(frame);
@@ -1445,7 +1594,7 @@
     var canvasHost = document.createElement("div");
     canvasHost.style.cssText = "width:100%;height:230px;";
     var controls = document.createElement("div");
-    controls.style.cssText = "display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.4rem 1rem;margin-top:.65rem;";
+    controls.style.cssText = "display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.4rem 1rem;margin-top:.65rem;";
     var report = statusLine(3.5);
     wrap.appendChild(bar);
     wrap.appendChild(canvasHost);

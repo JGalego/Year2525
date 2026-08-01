@@ -384,6 +384,12 @@ body[data-past] .dotnav { display: none; }
   justify-content: center;
 }
 .widget-surface canvas { display: block; width: 100%; height: 100%; }
+
+/* Range inputs sit in flex and grid columns in six widgets. A range has an
+   intrinsic min-width (~129px in Chrome) and min-width:auto stops a flex
+   or grid item shrinking below it — so on a phone the track overruns its
+   column and prints straight across the next label. */
+input[type="range"] { min-width: 0; max-width: 100%; }
 .interactive-hint { font-size: .8rem; color: var(--muted); margin-top: .75rem; margin-bottom: 0; }
 
 .cg-controls button:disabled { opacity: .35; cursor: default; }
