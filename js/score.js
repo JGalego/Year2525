@@ -16,13 +16,15 @@
      a layer at a time, slows, and ends on a single pulse in the dark, which
      is the same argument the archive's copy makes about interfaces.
 
-     The score is on by default, but "default" is doing limited work: no
-     browser will let a page make a sound before the visitor has interacted
-     with it, and scrolling explicitly does not count as interacting. So the
-     preference starts on and the score arms itself for the first click, tap
-     or keypress. Until then the control shows on-but-pending rather than
-     claiming to be playing. There is always a way to stop it, which is what
-     WCAG 1.4.2 asks of anything that starts on its own.
+     The score is on by default, so it starts the moment the page loads. But
+     "default" is doing limited work: no browser will let a page make a sound
+     before the visitor has interacted with it, and scrolling explicitly does
+     not count as interacting. So the load-time attempt above will actually go
+     silent in most browsers until the first click, tap or keypress arrives,
+     at which point it resumes exactly where it already was. Until sound is
+     confirmed the control shows on-but-pending rather than claiming to be
+     playing. There is always a way to stop it, which is what WCAG 1.4.2 asks
+     of anything that starts on its own.
      ========================================================================== */
 
   var btn = document.getElementById("sound-toggle");
@@ -259,7 +261,6 @@
 
   function start() {
     if (!ctx) build();
-    if (ctx.state === "suspended") ctx.resume();
     cfg = readConfig();
     step = 0;
     nextTime = ctx.currentTime + 0.08;
@@ -267,8 +268,23 @@
     master.gain.setValueAtTime(0.0001, ctx.currentTime);
     master.gain.exponentialRampToValueAtTime(0.22, ctx.currentTime + 1.4);
     run();
-    timer = setInterval(run, TICK);
-    playing = true;
+    if (!timer) timer = setInterval(run, TICK);
+    if (ctx.state === "suspended") {
+      // Attempt it anyway: some contexts (embedded webviews, a domain with
+      // enough prior media engagement) let this through with no gesture at
+      // all. Where the browser refuses, the promise just settles without
+      // ever reaching "running", and sync() below arms the fallback.
+      ctx.resume().then(sync, sync);
+      sync();
+    } else {
+      playing = true;
+      paint();
+    }
+  }
+
+  function sync() {
+    playing = ctx.state === "running";
+    if (playing) disarm(); else armForGesture();
     paint();
   }
 
@@ -287,7 +303,7 @@
   function paint() {
     var on = playing || pending;
     var label = playing ? "Silence the score"
-      : pending ? "Score on — it starts on your first click"
+      : pending ? "Score on — click to allow sound"
       : "Play the score";
     btn.setAttribute("aria-pressed", on ? "true" : "false");
     btn.classList.toggle("is-pending", pending && !playing);
@@ -310,31 +326,35 @@
     if (document.hidden) ctx.suspend(); else ctx.resume();
   });
 
-  // On unless it has been turned off before. The gesture requirement is the
-  // browser's, not ours, so this arms the first one rather than pretending
-  // it can autoplay. Events on the toggle itself are skipped — otherwise the
-  // pointerdown that opens the control would start the score and the click
-  // that follows would immediately stop it again.
-  var stored = null;
-  try { stored = localStorage.getItem(STORE); } catch (e) {}
-  pending = stored !== "off";
-
-  function arm(e) {
+  // Fallback for browsers that refused the load-time attempt above: resume
+  // the same context on the first gesture rather than restarting the piece.
+  // Events on the toggle itself are skipped — otherwise the pointerdown that
+  // opens the control would resume the score and the click that follows
+  // would immediately stop it again.
+  function onGesture(e) {
     if (e && e.target && e.target.closest && e.target.closest("#sound-toggle")) return;
     disarm();
-    if (!playing) start();
+    if (ctx && ctx.state === "suspended") ctx.resume().then(sync, sync);
+    else if (!playing) start();
+  }
+  function armForGesture() {
+    pending = true;
+    document.addEventListener("pointerdown", onGesture);
+    document.addEventListener("keydown", onGesture);
+    document.addEventListener("touchend", onGesture);
   }
   function disarm() {
     pending = false;
-    document.removeEventListener("pointerdown", arm);
-    document.removeEventListener("keydown", arm);
-    document.removeEventListener("touchend", arm);
+    document.removeEventListener("pointerdown", onGesture);
+    document.removeEventListener("keydown", onGesture);
+    document.removeEventListener("touchend", onGesture);
   }
-  if (pending) {
-    document.addEventListener("pointerdown", arm);
-    document.addEventListener("keydown", arm);
-    document.addEventListener("touchend", arm);
-  }
+
+  // On unless it has been turned off before — and now it actually tries to
+  // play right away instead of only arming for later.
+  var stored = null;
+  try { stored = localStorage.getItem(STORE); } catch (e) {}
+  if (stored !== "off") start();
 
   paint();
 })();
