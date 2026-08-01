@@ -6,7 +6,7 @@ Inspired by Zager & Evans' *In the Year 2525*, this is a static, single-page mus
 
 It runs **forward** first, through the invented future of software — from today's apps, through Mandates, Cultivars, Foldings, Chorales, Tilth, Liturgies, Weathers and Resonances, to a curator's note written in the year 12,525. That note is the hinge. Past it the gallery turns around and walks **back** down the real record — modern web, skeuomorphism, Windows, the ZX Spectrum, System 7, DOS, the 1980s underground, mainframes, punch cards, Jacquard looms, Babbage, the abacus, clay tablets, knotted rope, memory palaces, language, fire, and pre-symbolic cognition.
 
-There is a score, off by default, behind the speaker in the header. It is generated in the browser — Web Audio oscillators, no audio files — and it follows the same walk: the tonic climbs a semitone per era out to Year 12,525, then the other wing strips a layer at a time until nothing is left but a pulse. None of Rick Evans' 1969 song is reproduced; what it borrows is the structural device that song is famous for, which is that it keeps changing key as it marches through the millennia.
+There is a score, on by default, with the speaker in the header to silence it (the choice is remembered). Browsers will not let a page make a sound before the visitor has interacted with it — and scrolling does not count — so it starts on your first click, tap or keypress, and the control shows dimmed until then. It is generated in the browser — Web Audio oscillators, no audio files — and it follows the same walk: the tonic climbs a semitone per era out to Year 12,525, then the other wing strips a layer at a time until nothing is left but a pulse. None of Rick Evans' 1969 song is reproduced; what it borrows is the structural device that song is famous for, which is that it keeps changing key as it marches through the millennia.
 
 Thirty-three exhibits, twenty-eight of them interactive. Nothing is hidden behind a mode: the year counter in the header is a readout, not a control, and it reports whatever room you are standing in — 2026 up to 12,525, then all the way back to before anyone had a word for any of it.
 
@@ -29,5 +29,5 @@ Then open `http://localhost:8000`.
 - `index.html` — every exhibit, in one `<main>`, in scroll order
 - `css/style.css` — base layout plus a distinct visual theme per era
 - `js/main.js` — scroll-driven era theming, the year readout, dot nav, typed easter eggs
-- `js/score.js` — the procedural score (Web Audio, no files), off until you ask for it
+- `js/score.js` — the procedural score (Web Audio, no files)
 - `js/widgets.js` — the per-era interactive experiences (canvas + DOM), lazily initialized

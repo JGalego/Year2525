@@ -16,8 +16,13 @@
      a layer at a time, slows, and ends on a single pulse in the dark, which
      is the same argument the archive's copy makes about interfaces.
 
-     Everything is off until asked for. Browsers block audio before a gesture
-     anyway, but a museum that starts playing at you is bad manners.
+     The score is on by default, but "default" is doing limited work: no
+     browser will let a page make a sound before the visitor has interacted
+     with it, and scrolling explicitly does not count as interacting. So the
+     preference starts on and the score arms itself for the first click, tap
+     or keypress. Until then the control shows on-but-pending rather than
+     claiming to be playing. There is always a way to stop it, which is what
+     WCAG 1.4.2 asks of anything that starts on its own.
      ========================================================================== */
 
   var btn = document.getElementById("sound-toggle");
@@ -72,7 +77,7 @@
   ];
 
   var ctx = null, master = null, wetGain = null, reverb = null, noiseBuf = null;
-  var playing = false, timer = null;
+  var playing = false, pending = false, timer = null;
   var step = 0, nextTime = 0;
   var cfg = readConfig();
 
@@ -280,16 +285,23 @@
   }
 
   function paint() {
-    btn.setAttribute("aria-pressed", playing ? "true" : "false");
-    btn.title = playing ? "Silence the score" : "Play the score";
-    btn.setAttribute("aria-label", playing ? "Silence the score" : "Play the score");
+    var on = playing || pending;
+    var label = playing ? "Silence the score"
+      : pending ? "Score on — it starts on your first click"
+      : "Play the score";
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+    btn.classList.toggle("is-pending", pending && !playing);
+    btn.title = label;
+    btn.setAttribute("aria-label", label);
     var use = btn.querySelector("use");
-    if (use) use.setAttribute("href", playing ? "#icon-sound-on" : "#icon-sound-off");
+    if (use) use.setAttribute("href", on ? "#icon-sound-on" : "#icon-sound-off");
   }
 
+  function remember(v) { try { localStorage.setItem(STORE, v); } catch (e) {} }
+
   btn.addEventListener("click", function () {
-    if (playing) { stop(); try { localStorage.setItem(STORE, "off"); } catch (e) {} }
-    else { start(); try { localStorage.setItem(STORE, "on"); } catch (e) {} }
+    if (playing) { pending = false; stop(); remember("off"); }
+    else { disarm(); start(); remember("on"); }
   });
 
   // Don't keep playing into a tab nobody is looking at.
@@ -298,19 +310,31 @@
     if (document.hidden) ctx.suspend(); else ctx.resume();
   });
 
-  paint();
+  // On unless it has been turned off before. The gesture requirement is the
+  // browser's, not ours, so this arms the first one rather than pretending
+  // it can autoplay. Events on the toggle itself are skipped — otherwise the
+  // pointerdown that opens the control would start the score and the click
+  // that follows would immediately stop it again.
+  var stored = null;
+  try { stored = localStorage.getItem(STORE); } catch (e) {}
+  pending = stored !== "off";
 
-  // A stored preference cannot start the audio on its own — the gesture
-  // requirement is the browser's, not ours — so arm it for the next one.
-  var wanted = null;
-  try { wanted = localStorage.getItem(STORE); } catch (e) {}
-  if (wanted === "on") {
-    var arm = function () {
-      document.removeEventListener("pointerdown", arm);
-      document.removeEventListener("keydown", arm);
-      if (!playing) start();
-    };
+  function arm(e) {
+    if (e && e.target && e.target.closest && e.target.closest("#sound-toggle")) return;
+    disarm();
+    if (!playing) start();
+  }
+  function disarm() {
+    pending = false;
+    document.removeEventListener("pointerdown", arm);
+    document.removeEventListener("keydown", arm);
+    document.removeEventListener("touchend", arm);
+  }
+  if (pending) {
     document.addEventListener("pointerdown", arm);
     document.addEventListener("keydown", arm);
+    document.addEventListener("touchend", arm);
   }
+
+  paint();
 })();
