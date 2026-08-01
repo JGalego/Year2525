@@ -522,12 +522,51 @@ body[data-era="beyond"] {
 
 body[data-past] { --transition-era: background-color .5s ease, color .5s ease, border-color .5s ease; }
 
+/* The hinge. The turn used to be announced only after you had already
+   taken it — the first thing telling you the direction had reversed was
+   a heading you met on the far side, with a screen of undifferentiated
+   black in between that read as a rendering fault rather than a pause.
+   This sits at the end of the forward gallery instead, so the notice
+   arrives while you are still in the room it applies to. */
+.wing-turn {
+  margin-top: 4rem;
+  padding-top: 2.5rem;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+.wing-turn-kicker {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: .14em;
+  font-size: .72rem;
+  color: var(--accent);
+  margin-bottom: .8rem;
+}
+.wing-turn .wing-turn-line {
+  max-width: 44ch;
+  margin: 0 auto 1.4rem;
+  color: var(--muted);
+  font-size: 1rem;
+}
+.wing-turn-mark {
+  width: 2rem;
+  height: 2rem;
+  color: var(--accent);
+  animation: wing-turn-nudge 2.8s ease-in-out infinite;
+}
+/* Drifting the wrong way is the point — it is the only part of the page
+   that moves leftward. Neutralised by the global reduced-motion rule. */
+@keyframes wing-turn-nudge {
+  0%, 100% { transform: translateX(0); opacity: .5; }
+  50% { transform: translateX(-7px); opacity: 1; }
+}
+
 .past-intro {
-  min-height: 90vh;
+  min-height: 62vh;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 7rem 1.5rem 4rem;
+  padding: 4.5rem 1.5rem 4rem;
   max-width: var(--maxw);
   margin: 0 auto;
 }
