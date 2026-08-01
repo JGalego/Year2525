@@ -242,6 +242,23 @@ body[data-past] .dotnav { display: none; }
   color: var(--accent2);
 }
 
+/* The credit card on a museum panel: the institution speaking plainly,
+   under the interpretive text rather than inside it. Deliberately a
+   different register from the curator's serif prose above, because it is
+   a different speaker — this one is us, in 2026, saying it is all made up.
+   Safe from the `.future-intro p` specificity trap because that rule is
+   scoped to :not([class]). */
+.future-intro-fineprint {
+  margin: 1.75rem 0 0;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: .74rem;
+  line-height: 1.7;
+  color: var(--muted);
+  max-width: 60ch;
+}
+
 .era-inner { max-width: var(--maxw); margin: 0 auto; width: 100%; }
 
 .era-kicker {
