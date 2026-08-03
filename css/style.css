@@ -301,18 +301,44 @@ body.presenter-mode .past-intro.presenter-current > * {
   body.presenter-mode .past-intro.presenter-current { padding-left: 1.25rem; padding-right: 1.25rem; }
 }
 
-/* A single reusable slide for the per-subsection breakdown of a forward
-   era (title / Civilisation / Successor / Technology / Example /
-   Intelligence / Day-in-life / Creation / Historical Importance) — its
-   content is swapped in per slide rather than cloning 90 static sections. */
+/* A single reusable slide for the walkthrough's built slides — the opening
+   placard, each era's title and subsections, the Successor/Example/Day-in-
+   life/Historical Importance passages, the closing placard — with its
+   content swapped in per slide rather than cloning a hundred-odd sections.
+
+   They all wear the same three parts in the same places: an eyebrow naming
+   the room, a heading naming the passage, and the prose. The alternative,
+   which this had at first, is to hand the site's own cards over as they
+   stand — and a card is a box with a small label in the other accent, so
+   walking one era alternated between two kinds of slide. A box is how you
+   set an aside apart from the column beside it; on a slide of its own there
+   is nothing to set it apart from. */
 #presenter-virtual-slide { text-align: left; }
 .presenter-sub { max-width: var(--maxw); margin: 0 auto; width: 100%; }
 .presenter-sub-title { text-align: left; }
 .presenter-sub-title .era-icon { width: 3rem; height: 3rem; margin-bottom: 1.5rem; }
 .presenter-sub-title .era-art { max-width: min(100%, 780px); margin: 1.5rem auto 0; }
+/* The opening placard is cloned rather than rebuilt, so its own frame comes
+   with it: on the page it is an introduction the gallery continues below, and
+   the rule and the space under it are how it says so. A slide has an edge of
+   its own and needs neither. */
+.presenter-sub-title .future-intro {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border-bottom: none;
+}
 /* The sizes below are what the slide would *like* to be. They are a
    starting point, not a promise: the fitter scales the whole slide down
    from here when the exhibit it is showing has more on it than this. */
+.presenter-sub-eyebrow {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: .8rem;
+  color: var(--accent);
+  margin-bottom: 1.4rem;
+}
 .presenter-sub-heading {
   font-family: var(--font-display);
   font-size: clamp(2rem, 5.5vw, 3.4rem);
@@ -326,25 +352,31 @@ body.presenter-mode .past-intro.presenter-current > * {
 }
 /* Sized against the slide's body text rather than the page's: the
    placard's thesis is a step up from the paragraphs around it, and a
-   fixed 1.3rem would arrive on a slide as a step down from them. */
+   fixed 1.3rem would arrive on a slide as a step down from them. The same
+   goes the other way for the credit line, which is deliberately the
+   smallest voice in the room and should stay in proportion to the rest. */
 .presenter-sub-body .thesis { font-size: 1.15em; }
-.presenter-sub-card { max-width: 42em; margin: 0 auto; }
-.presenter-sub-card .callout,
-.presenter-sub-card .example-card,
-.presenter-sub-card .historical-note {
-  font-size: 1.25rem;
-  margin-bottom: 0;
+.presenter-sub-body .future-intro-fineprint {
+  font-size: .78em;
+  max-width: none;
+  margin: 0;
+  padding-top: 0;
+  border-top: none;
 }
 /* Both of these earn a rule above them by sitting at the bottom of
    something longer. On a slide of their own there is nothing above them
    to be divided from. */
-.presenter-sub-card .day-in-life,
-.presenter-sub-card .wing-turn { border-top: none; padding-top: 0; margin-top: 0; }
-.presenter-sub-card .day-in-life { font-size: 1.25rem; }
+.presenter-sub-body .wing-turn,
+.presenter-sub-closer .wing-turn { border-top: none; padding-top: 0; margin-top: 0; }
+.presenter-sub-closer { max-width: 42em; margin: 0 auto; }
 
-body.presenter-mode .era.presenter-current.presenter-widget-only > .era-inner > *:not(.interactive-block):not(.changelog) {
+/* The room's name stays on the widget slide too, so an era's last slide is
+   still recognisably part of the era. It is the section's own kicker, which
+   is already sitting there — it just stops being hidden with the rest. */
+body.presenter-mode .era.presenter-current.presenter-widget-only > .era-inner > *:not(.interactive-block):not(.changelog):not(.era-kicker) {
   display: none !important;
 }
+body.presenter-mode .presenter-widget-only .era-kicker { margin-bottom: 2rem; }
 body.presenter-mode .era.presenter-current.presenter-widget-only > .era-inner {
   display: flex;
   flex-direction: column;

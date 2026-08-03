@@ -224,104 +224,193 @@
   var presenterIndex = 0;
   var presenterActive = false;
 
-  function subNode(headingHTML, bodyHTML) {
-    var d = document.createElement("div");
-    d.className = "presenter-sub";
-    d.innerHTML = '<h2 class="presenter-sub-heading">' + headingHTML + '</h2><div class="presenter-sub-body">' + bodyHTML + '</div>';
-    return d;
-  }
-  function bodyNode(sourceEl) {
-    var d = document.createElement("div");
-    d.className = "presenter-sub";
-    var wrap = document.createElement("div");
-    wrap.className = "presenter-sub-body";
-    wrap.appendChild(sourceEl.cloneNode(true));
-    d.appendChild(wrap);
-    return d;
-  }
-  function cardNode(sourceEl, excludeSelector) {
-    var d = document.createElement("div");
-    d.className = "presenter-sub presenter-sub-card";
-    if (sourceEl) {
-      var clone = sourceEl.cloneNode(true);
-      var toRemove = excludeSelector ? clone.querySelector(excludeSelector) : null;
-      if (toRemove && toRemove.parentNode) toRemove.parentNode.removeChild(toRemove);
-      d.appendChild(clone);
-    }
-    return d;
-  }
-  function cardParagraphs(cardSlide) {
-    var card = cardSlide.firstChild;
-    return card ? Array.prototype.slice.call(card.children).filter(function (el) {
-      return el.tagName === "P";
+  function textOf(el) { return el ? el.textContent.trim() : ""; }
+
+  function paragraphsOf(el) {
+    return el ? Array.prototype.slice.call(el.children).filter(function (child) {
+      return child.tagName === "P";
     }) : [];
   }
-  // The Example card is the longest single block on the site — two dense
-  // paragraphs of worldbuilding under one heading. Fitting it whole is
-  // possible but means presenting it at about half size, so it is dealt
-  // out a paragraph at a time under a repeated heading instead. Splitting
-  // where the writing already breaks costs the copy nothing; every other
-  // card is short enough to stay in one piece.
-  function cardNodes(sourceEl, excludeSelector) {
-    var whole = cardNode(sourceEl, excludeSelector);
-    var count = cardParagraphs(whole).length;
-    if (count < 2) return [whole];
-    var out = [];
-    for (var i = 0; i < count; i++) {
-      var slice = cardNode(sourceEl, excludeSelector);
-      var keep = i;
-      cardParagraphs(slice).forEach(function (p, j) {
-        if (j !== keep) p.parentNode.removeChild(p);
-      });
-      out.push(slice);
-    }
-    return out;
+
+  // The era artwork is re-generated rather than deep-cloned. A cloned scene
+  // carries duplicate gradient/filter ids, and a duplicate resolves back to
+  // the original inside a display:none section the browser has stopped
+  // building resources for — the copy renders flat and unlit.
+  function renderArtIn(node) {
+    if (!window.Year2525Art) return;
+    Array.prototype.forEach.call(node.querySelectorAll("[data-art]"), function (mount) {
+      window.Year2525Art.render(mount);
+    });
   }
+
+  // Every built slide is the same three parts in the same places: the room it
+  // belongs to, what this slide is, and the passage itself.
+  //
+  // The first version of this had two languages instead of one. Subsections
+  // got a display heading in accent2; the Successor, Example and Historical
+  // Importance passages were handed over as clones of the site's own cards,
+  // which meant a bordered box, a narrower measure and a small uppercase
+  // label in the other accent — so walking a single era alternated between
+  // two kinds of slide every time. That chrome earns its keep on a scrolling
+  // page, where a card is an aside set apart from the column beside it. On a
+  // slide of its own there is nothing to be set apart from, and all the box
+  // did was change the subject. The cards are taken apart into this shape
+  // instead: their heading is a heading, their prose is prose, and which
+  // kind of passage it is comes across in what the heading says.
+  function slideNode(eyebrow, headingHTML, bodyContent) {
+    var d = document.createElement("div");
+    d.className = "presenter-sub";
+    if (eyebrow) {
+      var e = document.createElement("p");
+      e.className = "presenter-sub-eyebrow";
+      e.textContent = eyebrow;
+      d.appendChild(e);
+    }
+    if (headingHTML) {
+      var h = document.createElement("h2");
+      h.className = "presenter-sub-heading";
+      h.innerHTML = headingHTML;
+      d.appendChild(h);
+    }
+    var body = document.createElement("div");
+    body.className = "presenter-sub-body";
+    if (typeof bodyContent === "string") body.innerHTML = bodyContent;
+    else if (bodyContent) {
+      bodyContent.forEach(function (node) { body.appendChild(node.cloneNode(true)); });
+    }
+    d.appendChild(body);
+    return d;
+  }
+
+  // One slide per paragraph of a card, under a repeated heading. The Example
+  // cards are the longest passages on the site — two dense paragraphs each —
+  // and dealing them out reads at full size where fitting them whole means
+  // presenting at about half of it. Splitting where the writing already
+  // breaks costs the prose nothing.
+  function cardSlides(eyebrow, cardEl, excludeSelector) {
+    if (!cardEl) return [];
+    var clone = cardEl.cloneNode(true);
+    var drop = excludeSelector ? clone.querySelector(excludeSelector) : null;
+    if (drop && drop.parentNode) drop.parentNode.removeChild(drop);
+    // innerHTML, not text: the Example cards keep the product's name in a
+    // span inside their heading, and it belongs in the heading here too.
+    var heading = clone.querySelector("h4");
+    var headingHTML = heading ? heading.innerHTML : "";
+    var paras = paragraphsOf(clone);
+    if (!paras.length) return [slideNode(eyebrow, headingHTML, null)];
+    return paras.map(function (p) { return slideNode(eyebrow, headingHTML, [p]); });
+  }
+
+  // The day-in-life passage names itself in a leading strong, which is a
+  // heading everywhere except in the markup.
+  function dayInLifeSlides(eyebrow, para) {
+    if (!para) return [];
+    var clone = para.cloneNode(true);
+    // Without the class it stops reaching for the dashed rule and the top
+    // padding that separate it from the card it used to sit at the bottom of.
+    clone.classList.remove("day-in-life");
+    var lead = clone.querySelector("strong");
+    var heading = "A day in the life";
+    if (lead && lead.parentNode) {
+      heading = lead.textContent.replace(/[\s:]+$/, "");
+      lead.parentNode.removeChild(lead);
+      clone.innerHTML = clone.innerHTML.replace(/^\s+/, "");
+    }
+    return [slideNode(eyebrow, heading, [clone])];
+  }
+
+  // A placard read a paragraph at a time. Each one is kept inside a wrapper
+  // of the class it came from, because both placards style a paragraph or two
+  // by descent from it — the closing thesis gets its accent bar that way, and
+  // a bare clone would arrive without it.
+  function placardSlides(eyebrow, placard, wrapperClass) {
+    return paragraphsOf(placard).map(function (p) {
+      var wrap = document.createElement("div");
+      wrap.className = wrapperClass;
+      wrap.appendChild(p.cloneNode(true));
+      return slideNode(eyebrow, "", [wrap]);
+    });
+  }
+
   function titleNode(era) {
     var d = document.createElement("div");
     d.className = "presenter-sub presenter-sub-title";
     ["era-icon", "era-kicker", "era-title", "era-tagline", "era-art"].forEach(function (cls) {
       var src = era.querySelector("." + cls);
       if (!src) return;
-      // The era artwork is re-generated rather than deep-cloned. A cloned
-      // scene carries duplicate gradient/filter ids, and those resolve back
-      // to the original inside the now-hidden era, which the browser has
-      // stopped building resources for — the copy renders flat and unlit.
-      if (cls === "era-art" && window.Year2525Art) {
-        var mount = src.cloneNode(false);
-        if (window.Year2525Art.render(mount)) { d.appendChild(mount); return; }
-      }
+      if (cls === "era-art") { d.appendChild(src.cloneNode(false)); return; }
       d.appendChild(src.cloneNode(true));
     });
+    renderArtIn(d);
     return d;
   }
 
-  // Splits one era section into its per-subsection slide nodes, or
-  // returns null for a section with neither an era-grid nor a curator's
-  // note, which stays a single, unsplit slide.
+  // The gallery's opening placard — what this museum is, and who is speaking
+  // — sits inside the first era rather than in a section of its own, which is
+  // how the walkthrough came to open on "Applications" without ever saying
+  // where anybody was standing. It gets the same treatment as the closing
+  // placard at the far end: a title slide, then a paragraph at a time.
+  function introSlides(intro) {
+    var eyebrow = textOf(intro.querySelector(".future-intro-kicker"));
+
+    // Cloned whole and then thinned out, rather than assembled from its
+    // parts, because the opening title and its artwork are styled by descent
+    // from .future-intro and would arrive at default size without it.
+    var cover = document.createElement("div");
+    cover.className = "presenter-sub presenter-sub-title";
+    var coverInner = intro.cloneNode(true);
+    Array.prototype.forEach.call(
+      coverInner.querySelectorAll("p:not(.future-intro-kicker)"),
+      function (p) { p.parentNode.removeChild(p); }
+    );
+    cover.appendChild(coverInner);
+    renderArtIn(cover);
+
+    var nodes = [cover];
+    // p:not([class]) is how the stylesheet itself picks out the lede
+    // paragraphs from the kicker, the scroll note and the credit line.
+    Array.prototype.forEach.call(intro.querySelectorAll("p:not([class])"), function (p) {
+      nodes.push(slideNode(eyebrow, "", [p]));
+    });
+    // The credit line comes along — a deck claiming a future history should
+    // say who invented it — but the note above it does not: "Scroll forward"
+    // is an instruction for a page, and this is not one.
+    var fineprint = intro.querySelector(".future-intro-fineprint");
+    if (fineprint) nodes.push(slideNode(eyebrow, "", [fineprint]));
+    return nodes;
+  }
+
+  // Splits one era section into its slide nodes, or returns null for a
+  // section with nothing to split — no opening placard, no era-grid and no
+  // curator's note — which stays a single, unsplit slide.
   function buildEraSubslides(era) {
+    var eyebrow = textOf(era.querySelector(".era-kicker"));
+    var nodes = [];
+    var intro = era.querySelector(".future-intro");
+    if (intro) nodes = nodes.concat(introSlides(intro));
+
     var grid = era.querySelector(".era-grid");
-    // The Museum closer has no grid — it is a placard, six paragraphs of
-    // it, and it was the one slide the fitter had to take down past half
-    // size to hold whole. Dealt out a paragraph at a time it reads at
-    // full size, and the thesis it ends on gets the wall to itself.
+    // The Museum closer has no grid — it is a placard, six paragraphs of it,
+    // and it was the one slide the fitter had to take down past half size to
+    // hold whole. Dealt out a paragraph at a time it reads at full size, and
+    // the thesis it ends on gets the wall to itself.
     if (!grid) {
       var placard = era.querySelector(".museum-text");
-      if (!placard) return null;
-      var placardNodes = [titleNode(era)];
-      Array.prototype.slice.call(placard.children).forEach(function (p) {
-        // Kept inside a .museum-text of its own: the thesis paragraph is
-        // styled by descent from it, and a bare clone would arrive
-        // without the rule that gives it its accent bar.
-        var wrap = document.createElement("div");
-        wrap.className = "museum-text";
-        wrap.appendChild(p.cloneNode(true));
-        placardNodes.push(bodyNode(wrap));
-      });
+      if (!placard) return nodes.length ? nodes : null;
+      nodes.push(titleNode(era));
+      nodes = nodes.concat(placardSlides(eyebrow, placard, "museum-text"));
+      // The hinge is a signpost rather than a passage, and keeps the shape it
+      // has on the page: a line, centred, under the mark that points back.
       var wingTurn = era.querySelector(".wing-turn");
-      if (wingTurn) placardNodes.push(cardNode(wingTurn));
-      return placardNodes;
+      if (wingTurn) {
+        var closer = document.createElement("div");
+        closer.className = "presenter-sub presenter-sub-closer";
+        closer.appendChild(wingTurn.cloneNode(true));
+        nodes.push(closer);
+      }
+      return nodes;
     }
+
     var cols = grid.querySelectorAll(".era-col");
     var leftCol = cols[0], rightCol = cols[1];
     var subs = (leftCol ? Array.prototype.slice.call(leftCol.querySelectorAll("h3")) : []).map(function (h3) {
@@ -333,15 +422,15 @@
     var historicalNote = rightCol ? rightCol.querySelector(".historical-note") : null;
     var dayInLife = exampleCard ? exampleCard.querySelector(".day-in-life") : null;
 
-    var nodes = [titleNode(era)];
-    if (subs[0]) nodes.push(subNode(subs[0].label, subs[0].bodyHTML));
-    if (callout) nodes.push(cardNode(callout));
-    if (subs[1]) nodes.push(subNode(subs[1].label, subs[1].bodyHTML));
-    if (exampleCard) nodes.push.apply(nodes, cardNodes(exampleCard, ".day-in-life"));
-    if (subs[2]) nodes.push(subNode(subs[2].label, subs[2].bodyHTML));
-    if (dayInLife) nodes.push(cardNode(dayInLife));
-    if (subs[3]) nodes.push(subNode(subs[3].label, subs[3].bodyHTML));
-    if (historicalNote) nodes.push(cardNode(historicalNote));
+    nodes.push(titleNode(era));
+    if (subs[0]) nodes.push(slideNode(eyebrow, subs[0].label, subs[0].bodyHTML));
+    nodes = nodes.concat(cardSlides(eyebrow, callout));
+    if (subs[1]) nodes.push(slideNode(eyebrow, subs[1].label, subs[1].bodyHTML));
+    nodes = nodes.concat(cardSlides(eyebrow, exampleCard, ".day-in-life"));
+    if (subs[2]) nodes.push(slideNode(eyebrow, subs[2].label, subs[2].bodyHTML));
+    nodes = nodes.concat(dayInLifeSlides(eyebrow, dayInLife));
+    if (subs[3]) nodes.push(slideNode(eyebrow, subs[3].label, subs[3].bodyHTML));
+    nodes = nodes.concat(cardSlides(eyebrow, historicalNote));
     return nodes;
   }
 
@@ -388,12 +477,16 @@
       // slide on screen before there is anything on it to copy.
       live: true,
       printContent: function () {
-        // A widget slide is the widget: on screen the rest of the section
-        // is hidden by CSS, and in a copy it is simply not brought along.
+        // A widget slide is the room's name and the widget: on screen the
+        // rest of the section is hidden by CSS, and in a copy it is simply
+        // not brought along. The same three things stay, so the page and the
+        // screen are showing the same slide.
         var copy = printCopy(el.querySelector(".era-inner") || el);
         if (opts.widgetOnly) {
           Array.prototype.slice.call(copy.children).forEach(function (child) {
-            if (!child.classList.contains("interactive-block") && !child.classList.contains("changelog")) {
+            if (!child.classList.contains("interactive-block") &&
+                !child.classList.contains("changelog") &&
+                !child.classList.contains("era-kicker")) {
               copy.removeChild(child);
             }
           });
@@ -496,13 +589,23 @@
       el.style.height = "auto";
       return el.offsetHeight <= Math.ceil(boxH / s);
     }
-    if (fits(maxScale)) return maxScale;
-    if (!fits(FIT_MIN_SCALE)) return null;
-    var scale = FIT_MIN_SCALE, lo = FIT_MIN_SCALE, hi = maxScale;
-    for (var i = 0; i < FIT_STEPS; i++) {
-      var mid = (lo + hi) / 2;
-      if (fits(mid)) { scale = mid; lo = mid; } else { hi = mid; }
+    var scale = null;
+    if (fits(maxScale)) {
+      scale = maxScale;
+    } else if (fits(FIT_MIN_SCALE)) {
+      scale = FIT_MIN_SCALE;
+      var lo = FIT_MIN_SCALE, hi = maxScale;
+      for (var i = 0; i < FIT_STEPS; i++) {
+        var mid = (lo + hi) / 2;
+        if (fits(mid)) { scale = mid; lo = mid; } else { hi = mid; }
+      }
     }
+    // Returning also means leaving the element laid out at the scale being
+    // returned — the last measurement the bisection took is not usually the
+    // one it settled on, and a box left at some other scale's width wraps
+    // its text to a different number of lines than the scale it is about to
+    // be given was chosen for.
+    sizeAt(scale === null ? FIT_MIN_SCALE : scale);
     return scale;
   }
 
@@ -730,15 +833,7 @@
     clearSlideBox(copy);
     copy.classList.remove("presenter-current", "presenter-scroll", "presenter-widget-only");
 
-    // Same reason the presenter re-generates era artwork instead of cloning
-    // it: a cloned scene's gradient and filter ids are duplicates, and a
-    // duplicate resolves to the original, which is inside a display:none
-    // section the browser has stopped building resources for.
-    if (window.Year2525Art) {
-      Array.prototype.forEach.call(copy.querySelectorAll("[data-art]"), function (mount) {
-        window.Year2525Art.render(mount);
-      });
-    }
+    renderArtIn(copy);
 
     // A cloned canvas is blank — the bitmap is not part of the element — so
     // each one is replaced by a picture of what the live one is showing, at
@@ -788,6 +883,7 @@
     // A page cannot scroll, so the floor is the floor: a slide that still
     // will not fit at it is scaled there and clipped. Nothing in the gallery
     // as it stands comes near it — the smallest page lands around 0.72.
+    // fitScale has already left the box at whichever of the two it is.
     if (scale === null) scale = FIT_MIN_SCALE;
     fit.style.height = "";
     fit.style.minHeight = Math.ceil(PRINT_PAGE_H / scale) + "px";
