@@ -392,7 +392,7 @@
       body.appendChild(rulerHost);
     }
     var wing = entry.wing || "future";
-    var key = entry.eraKey || entry.pastKey || "";
+    var key = entry.rulerKey || "";
     if (!rulerByWing[wing]) rulerByWing[wing] = rulerNode(wing, "");
     var ruler = rulerByWing[wing];
     if (ruler.parentNode !== rulerHost) {
@@ -599,6 +599,19 @@
     Array.prototype.slice.call(document.querySelectorAll("#timeline > .past")).forEach(function (s) {
       entries.push(makeRealEntry(s));
     });
+
+    // Which mark the ruler lights. Every slide but one has a theme key of its
+    // own; the archive's opening slide has neither, which is the same gap the
+    // year readout already fills by borrowing the next room's date. The ruler
+    // borrows the next room's mark for the same reason — an opener points at
+    // what it opens onto — and the rail is never left with nothing lit.
+    // Walked backwards so the slide ahead has already worked its own out.
+    for (var i = entries.length - 1; i >= 0; i--) {
+      var own = entries[i].eraKey || entries[i].pastKey;
+      var ahead = entries[i + 1];
+      entries[i].rulerKey = own ||
+        ((ahead && ahead.wing === entries[i].wing) ? ahead.rulerKey : "") || "";
+    }
     return entries;
   }
 
@@ -951,11 +964,21 @@
     fit.className = "print-fit";
     fit.appendChild(content);
     page.appendChild(fit);
+    // An archive room paints its own background — XP's sky, the Windows 95
+    // bevel, the gradient behind Skeuomorphism — and on screen it paints the
+    // whole slide, because the slide is the section. The page has to be told,
+    // or the room prints as a panel with the page's flat colour showing around
+    // it. Marked here rather than sniffed for in CSS because this is the one
+    // place that knows what went onto the page.
+    if (content.classList &&
+        (content.classList.contains("past") || content.classList.contains("past-intro"))) {
+      page.classList.add("print-page-exhibit");
+    }
     // Outside the fitted box on purpose: the ruler is the page's furniture,
     // not part of what is being said on it, so it stays the same size whatever
     // scale the slide came out at — exactly as it does on screen, where it is
     // fixed chrome rather than something inside the slide.
-    page.appendChild(rulerNode(entry.wing || "future", entry.eraKey || entry.pastKey || ""));
+    page.appendChild(rulerNode(entry.wing || "future", entry.rulerKey || ""));
     return page;
   }
 

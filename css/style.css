@@ -499,6 +499,17 @@ body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05r
   max-width: none;
   border-bottom: none;
 }
+/* A room that paints its own background is the page rather than a panel on
+   it: the padding moves inside the section and the section grows to fill the
+   fitted box, so the background runs to all four edges the way it does on
+   screen, where the slide *is* the section. Its own centring keeps what is
+   written on it in the middle. */
+.print-page-exhibit .print-fit { padding: 0; }
+.print-page-exhibit .print-fit > .past,
+.print-page-exhibit .print-fit > .past-intro {
+  flex: 1;
+  padding: 2.5rem 3.5rem 4.5rem;
+}
 
 .print-overlay {
   position: fixed;
