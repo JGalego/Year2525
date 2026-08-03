@@ -207,6 +207,8 @@ body[data-past] .dotnav { display: none; }
 .presenter-controls button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
 .presenter-controls button:disabled { opacity: .35; cursor: default; }
 .presenter-counter { color: var(--muted); min-width: 4.5em; text-align: center; user-select: none; }
+.presenter-pdf { margin-left: .1rem; }
+.presenter-pdf-icon { width: 15px; height: 15px; flex: none; }
 
 .presenter-exit {
   position: fixed;
@@ -350,6 +352,117 @@ body.presenter-mode .era.presenter-current.presenter-widget-only > .era-inner {
   height: 100%;
 }
 body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05rem; }
+
+/* ------------------------- presenter pdf export ------------------------- */
+
+/* One 1280x720 box per slide, which is 13.333in x 7.5in at 96dpi — the 16:9
+   page every deck tool defaults to. Because the page is an exact pixel
+   multiple, what the fitter measures here is what lands on the page with no
+   print-time rescaling in between. The stack has to be laid out for that
+   measurement to mean anything, so it is parked off to the side rather than
+   display:none, and put back into the flow for print only. */
+#presenter-print {
+  position: absolute;
+  top: 0;
+  left: -200vw;
+  width: 1280px;
+}
+.print-page {
+  position: relative;
+  width: 1280px;
+  height: 720px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.65;
+  /* Chrome leaves background colour out of print output unless the visitor
+     finds the "Background graphics" checkbox. A gallery that prints its
+     dark rooms white is not the gallery, so every page opts back in. */
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.print-fit {
+  position: absolute;
+  top: 0; left: 0;
+  transform-origin: 0 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2.5rem 3.5rem;
+}
+.print-fit > * { width: 100%; }
+/* Mirrors #presenter-virtual-slide: the built slides are set left, the
+   archive's own sections keep the centring they have on the page. */
+.print-page-sub .print-fit { text-align: left; }
+/* An export runs from inside presenter mode, which hides the gallery's
+   sections while it is showing one of them — and these pages are built out
+   of copies of those same sections, which that rule reaches into and hides
+   too. Left alone, the whole archive measures as nothing, "fits" trivially
+   and prints as blank pages. The id outranks it; flex is what all three of
+   them are in the stylesheet already. */
+#presenter-print .era,
+#presenter-print .past,
+#presenter-print .past-intro { display: flex !important; }
+/* The sections arrive as clones of themselves, still carrying the height and
+   frame they use in a scroll. On a page of their own they are the page. */
+.print-page .past,
+.print-page .past-intro,
+.print-page .era {
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  max-width: none;
+  border-bottom: none;
+}
+
+.print-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .9rem;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  font-family: var(--font-mono);
+  font-size: .85rem;
+  color: var(--fg);
+  text-align: center;
+  padding: 2rem;
+}
+.print-overlay-note { color: var(--muted); max-width: 34ch; line-height: 1.7; }
+.print-overlay-bar {
+  width: min(320px, 70vw);
+  height: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+.print-overlay-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width .2s linear;
+}
+
+@media print {
+  /* 13.333in x 7.5in, stated in the pixels the pages are built in so the
+     two cannot round apart and spill a blank page after every slide. */
+  @page { size: 1280px 720px; margin: 0; }
+  /* Only reachable once an export has built the stack: printing the page
+     itself, from the browser's own menu, is left exactly as it was. */
+  body.presenter-printing > *:not(#presenter-print) { display: none !important; }
+  body.presenter-printing #presenter-print {
+    position: static;
+    left: auto;
+    width: auto;
+  }
+  body.presenter-printing .print-page { break-after: page; page-break-after: always; }
+  body.presenter-printing .print-page:last-child { break-after: auto; page-break-after: auto; }
+}
 
 /* ---------------------------- era layout ---------------------------- */
 

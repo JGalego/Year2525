@@ -297,6 +297,12 @@
     <path d="M10.3 8.3v5.4l4.7-2.7z" fill="currentColor" stroke="none"/>
   </symbol>
 
+  <symbol id="icon-print" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 9V3.5h10V9"/>
+    <path d="M7 17H4.5V9h15v8H17"/>
+    <rect x="7" y="14" width="10" height="6.5"/>
+  </symbol>
+
   <symbol id="icon-bulb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
     <path d="M9 18h6"/>
     <path d="M10 22h4"/>
@@ -331,6 +337,9 @@
   <button id="presenter-prev" type="button" aria-label="Previous slide">‹</button>
   <span id="presenter-counter" class="presenter-counter">1 / 1</span>
   <button id="presenter-next" type="button" aria-label="Next slide">›</button>
+  <button id="presenter-pdf" class="presenter-pdf" type="button" title="Save every slide as a PDF" aria-label="Save every slide as a PDF">
+    <svg class="presenter-pdf-icon" aria-hidden="true" width="15" height="15"><use href="#icon-print"></use></svg>
+  </button>
 </div>
 <button id="presenter-exit" class="presenter-exit" type="button" aria-label="Exit presenter mode" hidden>×</button>
 

@@ -216,6 +216,7 @@
   var presenterPrev = document.getElementById("presenter-prev");
   var presenterNext = document.getElementById("presenter-next");
   var presenterExit = document.getElementById("presenter-exit");
+  var presenterPDF = document.getElementById("presenter-pdf");
   var presenterCounter = document.getElementById("presenter-counter");
   var presenterVirtualSlide = document.getElementById("presenter-virtual-slide");
 
@@ -351,6 +352,9 @@
       // Built copy, all vector: it can be blown up past its natural size
       // to fill the wall when a slide is only a heading and a paragraph.
       maxScale: 1.35,
+      // Nothing on it needs to have been on screen to be worth copying.
+      live: false,
+      printContent: function () { return printCopy(node); },
       show: function () {
         presenterVirtualSlide.innerHTML = "";
         presenterVirtualSlide.appendChild(node);
@@ -379,6 +383,23 @@
       // — but enlarging it would resample a raster widget upwards, so the
       // section's own size is the ceiling.
       maxScale: 1,
+      // A widget mounts when the slide it is on comes into view and sizes
+      // itself from the box it mounted into, so an export has to put this
+      // slide on screen before there is anything on it to copy.
+      live: true,
+      printContent: function () {
+        // A widget slide is the widget: on screen the rest of the section
+        // is hidden by CSS, and in a copy it is simply not brought along.
+        var copy = printCopy(el.querySelector(".era-inner") || el);
+        if (opts.widgetOnly) {
+          Array.prototype.slice.call(copy.children).forEach(function (child) {
+            if (!child.classList.contains("interactive-block") && !child.classList.contains("changelog")) {
+              copy.removeChild(child);
+            }
+          });
+        }
+        return copy;
+      },
       show: function () {
         el.classList.add("presenter-current");
         if (opts.widgetOnly) el.classList.add("presenter-widget-only");
@@ -459,38 +480,44 @@
     el.style.paddingBottom = (chromeBottom() / s) + "px";
   }
 
-  // Lays the slide out at scale s and reports whether it fits. Height is
-  // left auto for the measurement so offsetHeight is the honest height of
-  // the content plus its padding — scrollHeight on an already-clipped box
-  // is the thing browsers disagree about at the bottom edge.
-  function slideFitsAt(el, s) {
-    sizeSlideBox(el, s);
-    el.style.height = "auto";
-    return el.offsetHeight <= Math.ceil(window.innerHeight / s);
+  // The largest scale in [FIT_MIN_SCALE, maxScale] at which the element,
+  // laid out by sizeAt(s), still comes in under boxH/s — or null if even
+  // the smallest one overflows. Fitting is monotone in s: laying a slide
+  // out smaller only ever gives it a wider box and more room than it had,
+  // so the boundary between fits and doesn't can be bisected for.
+  //
+  // Height is left auto for each measurement, because offsetHeight of an
+  // auto-height box is the honest height of the content plus its padding —
+  // scrollHeight on an already-clipped box is the thing browsers disagree
+  // about at the bottom edge. The caller sets the final height itself.
+  function fitScale(el, boxH, maxScale, sizeAt) {
+    function fits(s) {
+      sizeAt(s);
+      el.style.height = "auto";
+      return el.offsetHeight <= Math.ceil(boxH / s);
+    }
+    if (fits(maxScale)) return maxScale;
+    if (!fits(FIT_MIN_SCALE)) return null;
+    var scale = FIT_MIN_SCALE, lo = FIT_MIN_SCALE, hi = maxScale;
+    for (var i = 0; i < FIT_STEPS; i++) {
+      var mid = (lo + hi) / 2;
+      if (fits(mid)) { scale = mid; lo = mid; } else { hi = mid; }
+    }
+    return scale;
   }
 
   function fitPresenterSlide(entry) {
     var el = entry.fitEl;
-    var max = entry.maxScale || 1;
-    var scale = max;
-
     el.classList.remove("presenter-scroll");
-    if (!slideFitsAt(el, max)) {
+    var scale = fitScale(el, window.innerHeight, entry.maxScale || 1, function (s) {
+      sizeSlideBox(el, s);
+    });
+    if (scale === null) {
+      // Two and a half times the screen and still overflowing: nothing here
+      // is worth reading at that size anyway, so this one slide scrolls
+      // rather than losing its bottom half without saying so.
       scale = FIT_MIN_SCALE;
-      if (!slideFitsAt(el, FIT_MIN_SCALE)) {
-        // Two and a half times the screen and still overflowing: nothing
-        // here is worth reading at that size anyway, so this one slide
-        // scrolls rather than losing its bottom half without saying so.
-        el.classList.add("presenter-scroll");
-      } else {
-        // Fits small, doesn't fit large, and shrinking never makes a slide
-        // overflow that didn't — so the boundary can be bisected for.
-        var lo = FIT_MIN_SCALE, hi = max;
-        for (var i = 0; i < FIT_STEPS; i++) {
-          var mid = (lo + hi) / 2;
-          if (slideFitsAt(el, mid)) { scale = mid; lo = mid; } else { hi = mid; }
-        }
-      }
+      el.classList.add("presenter-scroll");
     }
 
     // Ceil both axes so the scaled box covers the viewport rather than
@@ -633,13 +660,366 @@
     updateActiveSection();
   }
 
+  // ---------------------------------------------------------------
+  // Export to PDF
+  // ---------------------------------------------------------------
+  // No library and no server: the browser already has a PDF writer behind
+  // window.print(), so the work is handing it a document worth printing —
+  // one page-sized box per slide, in order, each fitted by the same
+  // bisection the screen uses, against the page box instead of the window.
+  //
+  // The pages are built at 1280x720 to match the @page size, so a slide
+  // measured here is not rescaled again on the way out.
+
+  var PRINT_PAGE_W = 1280;
+  var PRINT_PAGE_H = 720;
+  var printRoot = null;
+  var printOverlay = null;
+  var printSafety = null;
+  var exporting = false;
+
+  // Every theme on the site is a set of custom properties hung off
+  // body[data-era] / body[data-past], plus a few rules that reach down from
+  // there into a section. One printed document has one body and needs a
+  // different theme per page, so the theme cascade is re-emitted against the
+  // pages themselves: each of those rules is copied with its body swapped
+  // for a .print-page carrying the same attribute. Reading the real
+  // stylesheet rather than restating it means a theme edited later, or a
+  // room added later, needs nothing done here to come out right.
+  var THEME_BODY_TEST = /body\[data-(?:era|past)[\]=]/;
+  var THEME_BODY = /body(?=\[data-(?:era|past)[\]=])/g;
+
+  function collectThemeRules(rules, out, media) {
+    Array.prototype.forEach.call(rules, function (rule) {
+      if (rule.cssRules && typeof rule.conditionText === "string") {
+        collectThemeRules(rule.cssRules, out, rule.conditionText);
+        return;
+      }
+      if (!rule.selectorText || !THEME_BODY_TEST.test(rule.selectorText)) return;
+      // Selector lists in this stylesheet are plain — no :is() or :not()
+      // carrying commas of their own — so splitting on the comma is safe.
+      var selectors = rule.selectorText.split(",").map(function (part) {
+        part = part.trim();
+        return THEME_BODY_TEST.test(part) ? part.replace(THEME_BODY, "#presenter-print .print-page") : null;
+      }).filter(Boolean);
+      if (!selectors.length) return;
+      var css = selectors.join(", ") + " { " + rule.style.cssText + " }";
+      out.push(media ? "@media " + media + " { " + css + " }" : css);
+    });
+  }
+
+  function printThemeStyle() {
+    var out = [];
+    Array.prototype.forEach.call(document.styleSheets, function (sheet) {
+      var rules = null;
+      // A stylesheet from another origin will not hand its rules over. The
+      // site's own, served from beside the page, always does.
+      try { rules = sheet.cssRules; } catch (err) { return; }
+      if (rules) collectThemeRules(rules, out, "");
+    });
+    var style = document.createElement("style");
+    style.textContent = out.join("\n");
+    return style;
+  }
+
+  // A copy of a slide's content that can stand on its own in a page.
+  function printCopy(sourceEl) {
+    var copy = sourceEl.cloneNode(true);
+    // The box the on-screen fitter left behind belongs to the window it was
+    // measured in. A page is a different size and fits its own copy.
+    clearSlideBox(copy);
+    copy.classList.remove("presenter-current", "presenter-scroll", "presenter-widget-only");
+
+    // Same reason the presenter re-generates era artwork instead of cloning
+    // it: a cloned scene's gradient and filter ids are duplicates, and a
+    // duplicate resolves to the original, which is inside a display:none
+    // section the browser has stopped building resources for.
+    if (window.Year2525Art) {
+      Array.prototype.forEach.call(copy.querySelectorAll("[data-art]"), function (mount) {
+        window.Year2525Art.render(mount);
+      });
+    }
+
+    // A cloned canvas is blank — the bitmap is not part of the element — so
+    // each one is replaced by a picture of what the live one is showing, at
+    // the size it is showing it, which also keeps the copy's layout
+    // measurable before the image has decoded.
+    var live = sourceEl.querySelectorAll("canvas");
+    var dead = copy.querySelectorAll("canvas");
+    for (var i = 0; i < dead.length; i++) {
+      if (!live[i] || !dead[i].parentNode) continue;
+      var shot = document.createElement("img");
+      try {
+        shot.src = live[i].toDataURL("image/png");
+      } catch (err) {
+        continue; /* a tainted canvas keeps its blank copy rather than breaking the export */
+      }
+      shot.className = dead[i].className;
+      shot.style.cssText = dead[i].style.cssText;
+      shot.style.display = "block";
+      shot.style.width = (live[i].offsetWidth || live[i].width) + "px";
+      shot.style.height = (live[i].offsetHeight || live[i].height) + "px";
+      dead[i].parentNode.replaceChild(shot, dead[i]);
+    }
+    return copy;
+  }
+
+  function printPageFor(entry, content) {
+    var page = document.createElement("div");
+    page.className = "print-page" + (entry.live ? "" : " print-page-sub");
+    // The theme keys the page renders in are the same ones the slide sets on
+    // the body. The archive's opening slide sets neither, and leaving both
+    // off here is what gives it the same untinted room it has on screen.
+    if (entry.eraKey) page.setAttribute("data-era", entry.eraKey);
+    else if (entry.pastKey) page.setAttribute("data-past", entry.pastKey);
+    var fit = document.createElement("div");
+    fit.className = "print-fit";
+    fit.appendChild(content);
+    page.appendChild(fit);
+    return page;
+  }
+
+  function fitPrintPage(page, maxScale) {
+    var fit = page.querySelector(".print-fit");
+    var scale = fitScale(fit, PRINT_PAGE_H, maxScale, function (s) {
+      fit.style.width = Math.ceil(PRINT_PAGE_W / s) + "px";
+      fit.style.minHeight = "0";
+    });
+    // A page cannot scroll, so the floor is the floor: a slide that still
+    // will not fit at it is scaled there and clipped. Nothing in the gallery
+    // as it stands comes near it — the smallest page lands around 0.72.
+    if (scale === null) scale = FIT_MIN_SCALE;
+    fit.style.height = "";
+    fit.style.minHeight = Math.ceil(PRINT_PAGE_H / scale) + "px";
+    fit.style.transform = "scale(" + scale + ")";
+  }
+
+  // The dioramas are the one thing on a slide a PDF cannot afford to keep
+  // as vectors. Each scene is built from a couple of dozen blurred
+  // elements, and Chrome writes every filtered subtree into the file as its
+  // own high-resolution bitmap: the ten artwork pages came to 52MB of a
+  // 58MB export, against 6MB for the other hundred and nineteen.
+  // Photographed once each at twice their printed size they look the same
+  // and the file comes out around six times smaller.
+  function rasterizeArt(page, mount, done) {
+    var svg = mount.querySelector("svg");
+    var w = mount.offsetWidth, h = mount.offsetHeight;
+    if (!svg || !w || !h) { done(); return; }
+
+    // An SVG loaded as an image is its own document: it cannot see this
+    // one's custom properties, and the currentColor its strokes default to
+    // is no longer inherited from the mount. Both are resolved into the
+    // copy, off the themed page, before it is handed over as an image.
+    var pageStyle = window.getComputedStyle(page);
+    var mountColor = window.getComputedStyle(mount).color;
+    var copy = svg.cloneNode(true);
+    copy.setAttribute("width", w);
+    copy.setAttribute("height", h);
+    var markup = new XMLSerializer().serializeToString(copy)
+      .replace(/var\(\s*(--[\w-]+)\s*\)/g, function (whole, name) {
+        return pageStyle.getPropertyValue(name).trim() || whole;
+      })
+      .replace(/currentColor/g, mountColor || "currentColor");
+
+    var loader = new Image();
+    loader.onload = function () {
+      try {
+        var shot = document.createElement("canvas");
+        shot.width = Math.round(w * 2);
+        shot.height = Math.round(h * 2);
+        shot.getContext("2d").drawImage(loader, 0, 0, shot.width, shot.height);
+        var flat = document.createElement("img");
+        flat.src = shot.toDataURL("image/png");
+        flat.style.display = "block";
+        flat.style.width = "100%";
+        flat.style.height = "100%";
+        mount.replaceChild(flat, svg);
+      } catch (err) { /* leave the scene vector rather than lose it */ }
+      done();
+    };
+    // Anything that stops the image loading leaves the vector scene in
+    // place: a heavier file is better than a missing diorama.
+    loader.onerror = function () { done(); };
+    loader.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(markup);
+  }
+
+  // A widget mounts when the observer watching it reports the slide it sits
+  // on as visible — a frame or two after the slide is shown — and then
+  // builds its own DOM. Waiting a fixed couple of frames photographed some
+  // of them still empty, so the wait is on the mounts themselves filling up,
+  // with a deadline for any that legitimately have nothing to put in them.
+  function whenSlideSettled(entry, done) {
+    var mounts = Array.prototype.slice.call(entry.fitEl.querySelectorAll("[data-widget-mount]"));
+    var deadline = Date.now() + 900;
+    function check() {
+      var empty = mounts.some(function (mount) { return !mount.firstElementChild; });
+      if (empty && Date.now() < deadline) { requestAnimationFrame(check); return; }
+      // Two more frames: one for the last thing to mount to be laid out, one
+      // for whatever it draws on its first pass to be on the canvas before
+      // the canvas is photographed.
+      requestAnimationFrame(function () { requestAnimationFrame(done); });
+    }
+    check();
+  }
+
+  function showPrintOverlay() {
+    printOverlay = document.createElement("div");
+    printOverlay.className = "print-overlay";
+    printOverlay.innerHTML =
+      '<p class="print-overlay-count">Laying out slides…</p>' +
+      '<div class="print-overlay-bar"><span></span></div>' +
+      '<p class="print-overlay-note">Your browser\'s print dialog will open when they are ready. Choose "Save as PDF", and leave the paper size on the one the page asks for.</p>';
+    body.appendChild(printOverlay);
+    return printOverlay;
+  }
+
+  function printProgress(label, done, total) {
+    if (!printOverlay) return;
+    printOverlay.querySelector(".print-overlay-count").textContent =
+      label + " " + done + " / " + total;
+    printOverlay.querySelector(".print-overlay-bar span").style.width =
+      Math.round((done / total) * 100) + "%";
+  }
+
+  function hidePrintOverlay() {
+    if (printOverlay && printOverlay.parentNode) printOverlay.parentNode.removeChild(printOverlay);
+    printOverlay = null;
+  }
+
+  function removePrintDocument() {
+    if (printRoot && printRoot.parentNode) printRoot.parentNode.removeChild(printRoot);
+    printRoot = null;
+  }
+
+  function endExport() {
+    clearTimeout(printSafety);
+    body.classList.remove("presenter-printing");
+    removePrintDocument();
+    hidePrintOverlay();
+    exporting = false;
+  }
+
+  function exportPresenterPDF() {
+    if (exporting || !presenterActive || !presenterSlides.length) return;
+    exporting = true;
+    var total = presenterSlides.length;
+    var openOn = presenterIndex;
+    var captured = [];
+    var i = 0;
+
+    showPrintOverlay();
+    printProgress("Laying out slides…", 0, total);
+    removePrintDocument();
+    printRoot = document.createElement("div");
+    printRoot.id = "presenter-print";
+    printRoot.appendChild(printThemeStyle());
+    body.appendChild(printRoot);
+
+    function capture() {
+      if (i >= total) { assemble(); return; }
+      var entry = presenterSlides[i];
+      if (entry.live) {
+        showPresenterSlide(i);
+        whenSlideSettled(entry, function () {
+          captured.push({ content: entry.printContent(), entry: entry });
+          i++;
+          printProgress("Laying out slides…", i, total);
+          capture();
+        });
+        return;
+      }
+      // Nothing to wait for on a built slide, so take as many as fit in a
+      // frame's worth of work and let the overlay keep up between batches.
+      var deadline = Date.now() + 20;
+      while (i < total && !presenterSlides[i].live && Date.now() < deadline) {
+        captured.push({ content: presenterSlides[i].printContent(), entry: presenterSlides[i] });
+        i++;
+      }
+      printProgress("Laying out slides…", i, total);
+      setTimeout(capture, 0);
+    }
+
+    function assemble() {
+      showPresenterSlide(openOn);
+      var pages = captured.map(function (item) {
+        var page = printPageFor(item.entry, item.content);
+        printRoot.appendChild(page);
+        return { page: page, maxScale: item.entry.maxScale || 1 };
+      });
+      var f = 0;
+      function fitBatch() {
+        var deadline = Date.now() + 20;
+        while (f < pages.length && Date.now() < deadline) {
+          fitPrintPage(pages[f].page, pages[f].maxScale);
+          f++;
+        }
+        printProgress("Fitting pages…", f, total);
+        if (f < pages.length) { setTimeout(fitBatch, 0); return; }
+        flatten();
+      }
+      fitBatch();
+    }
+
+    // Runs after the fit, not before it: swapping each scene for a picture
+    // of itself at the same size leaves every box on the page where the fit
+    // put it, so there is nothing to measure again.
+    function flatten() {
+      var mounts = Array.prototype.slice.call(printRoot.querySelectorAll(".print-page [data-art]"));
+      var r = 0;
+      function next() {
+        if (r >= mounts.length) { handOver(); return; }
+        var mount = mounts[r];
+        printProgress("Flattening artwork…", r, mounts.length);
+        r++;
+        rasterizeArt(mount.closest(".print-page"), mount, next);
+      }
+      next();
+    }
+
+    function handOver() {
+      hidePrintOverlay();
+      body.classList.add("presenter-printing");
+      // One frame in the printing state before the dialog takes over, so it
+      // is measuring the document it is about to render.
+      requestAnimationFrame(function () {
+        window.print();
+        // The stack comes down when the dialog reports itself closed, not
+        // when print() returns: print() blocks until then in every browser
+        // that matters, but a browser where it did not would have its
+        // document pulled out from under it mid-render. The timer is only
+        // there so a browser that reports nothing at all cannot leave the
+        // export stuck on and the button dead.
+        printSafety = setTimeout(function () { if (exporting) endExport(); }, 30000);
+      });
+    }
+
+    capture();
+  }
+
+  window.addEventListener("afterprint", function () {
+    if (exporting) endExport();
+  });
+  // Safari has only had afterprint since 13, and the print media query
+  // going quiet says the same thing in every browser that has either.
+  if (window.matchMedia) {
+    var printMedia = window.matchMedia("print");
+    var printMediaChange = function (e) { if (!e.matches && exporting) endExport(); };
+    if (printMedia.addEventListener) printMedia.addEventListener("change", printMediaChange);
+    else if (printMedia.addListener) printMedia.addListener(printMediaChange);
+  }
+
   if (presenterToggle) {
     presenterToggle.addEventListener("click", function () {
+      if (exporting) return;
       if (presenterActive) exitPresenter(); else enterPresenter();
     });
-    presenterPrev.addEventListener("click", function () { showPresenterSlide(presenterIndex - 1); });
-    presenterNext.addEventListener("click", function () { showPresenterSlide(presenterIndex + 1); });
-    presenterExit.addEventListener("click", function () { exitPresenter(); });
+    // An export drives the slides itself, one at a time, to get a look at
+    // every widget — so while it is running the controls that would move
+    // them out from under it are inert.
+    presenterPrev.addEventListener("click", function () { if (!exporting) showPresenterSlide(presenterIndex - 1); });
+    presenterNext.addEventListener("click", function () { if (!exporting) showPresenterSlide(presenterIndex + 1); });
+    presenterExit.addEventListener("click", function () { if (!exporting) exitPresenter(); });
+    presenterPDF.addEventListener("click", exportPresenterPDF);
 
     // A projector is a resize: plugging one in re-runs the fit rather than
     // leaving the slide scaled for the laptop screen it was measured on.
@@ -651,7 +1031,15 @@
     });
 
     window.addEventListener("keydown", function (e) {
-      if (!presenterActive) return;
+      if (!presenterActive || exporting) return;
+      // Asking the browser to print a slide deck should get the slide deck,
+      // not one fixed slide repeated across a hundred sheets of paper.
+      if ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P")) {
+        e.preventDefault();
+        exportPresenterPDF();
+        return;
+      }
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === "ArrowRight" || e.key === "ArrowDown" || e.key === " " || e.key === "PageDown") {
         e.preventDefault();
         showPresenterSlide(presenterIndex + 1);
