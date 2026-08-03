@@ -243,8 +243,9 @@
     });
   }
 
-  // Every built slide is the same three parts in the same places: the room it
-  // belongs to, what this slide is, and the passage itself.
+  // Every built slide is the same two parts in the same places: what this
+  // slide is, and the passage itself. Which room it belongs to is said once,
+  // on the room's own opening slide, and carried from there by the ruler.
   //
   // The first version of this had two languages instead of one. Subsections
   // got a display heading in accent2; the Successor, Example and Historical
@@ -257,15 +258,9 @@
   // did was change the subject. The cards are taken apart into this shape
   // instead: their heading is a heading, their prose is prose, and which
   // kind of passage it is comes across in what the heading says.
-  function slideNode(eyebrow, headingHTML, bodyContent) {
+  function slideNode(headingHTML, bodyContent) {
     var d = document.createElement("div");
     d.className = "presenter-sub";
-    if (eyebrow) {
-      var e = document.createElement("p");
-      e.className = "presenter-sub-eyebrow";
-      e.textContent = eyebrow;
-      d.appendChild(e);
-    }
     if (headingHTML) {
       var h = document.createElement("h2");
       h.className = "presenter-sub-heading";
@@ -287,7 +282,7 @@
   // and dealing them out reads at full size where fitting them whole means
   // presenting at about half of it. Splitting where the writing already
   // breaks costs the prose nothing.
-  function cardSlides(eyebrow, cardEl, excludeSelector) {
+  function cardSlides(cardEl, excludeSelector) {
     if (!cardEl) return [];
     var clone = cardEl.cloneNode(true);
     var drop = excludeSelector ? clone.querySelector(excludeSelector) : null;
@@ -297,13 +292,13 @@
     var heading = clone.querySelector("h4");
     var headingHTML = heading ? heading.innerHTML : "";
     var paras = paragraphsOf(clone);
-    if (!paras.length) return [slideNode(eyebrow, headingHTML, null)];
-    return paras.map(function (p) { return slideNode(eyebrow, headingHTML, [p]); });
+    if (!paras.length) return [slideNode(headingHTML, null)];
+    return paras.map(function (p) { return slideNode(headingHTML, [p]); });
   }
 
   // The day-in-life passage names itself in a leading strong, which is a
   // heading everywhere except in the markup.
-  function dayInLifeSlides(eyebrow, para) {
+  function dayInLifeSlides(para) {
     if (!para) return [];
     var clone = para.cloneNode(true);
     // Without the class it stops reaching for the dashed rule and the top
@@ -316,20 +311,102 @@
       lead.parentNode.removeChild(lead);
       clone.innerHTML = clone.innerHTML.replace(/^\s+/, "");
     }
-    return [slideNode(eyebrow, heading, [clone])];
+    return [slideNode(heading, [clone])];
   }
 
   // A placard read a paragraph at a time. Each one is kept inside a wrapper
   // of the class it came from, because both placards style a paragraph or two
   // by descent from it — the closing thesis gets its accent bar that way, and
   // a bare clone would arrive without it.
-  function placardSlides(eyebrow, placard, wrapperClass) {
+  function placardSlides(placard, wrapperClass) {
     return paragraphsOf(placard).map(function (p) {
       var wrap = document.createElement("div");
       wrap.className = wrapperClass;
       wrap.appendChild(p.cloneNode(true));
-      return slideNode(eyebrow, "", [wrap]);
+      return slideNode("", [wrap]);
     });
+  }
+
+  // ---------------------------------------------------------------
+  // The ruler
+  // ---------------------------------------------------------------
+  // A slide says which room it is in once, on the room's own opening slide.
+  // What carries that for the rest of the room is a rule of symbols along
+  // the foot of the slide — one per room in the wing you are walking, the
+  // one you are standing in lit and ticked. It replaces the room's name
+  // repeated on every slide, which said the same thing forty times in a row
+  // and still could not say how far along it was.
+  //
+  // Both rulers are read off the gallery itself: every room already carries
+  // the symbol that stands for it, in its .era-icon or .past-icon. A room
+  // added to the timeline turns up on the ruler without anything here
+  // knowing it exists.
+  var rulerRooms = {};
+
+  function roomsIn(wing) {
+    if (rulerRooms[wing]) return rulerRooms[wing];
+    var attr = wing === "past" ? "data-past" : "data-era";
+    rulerRooms[wing] = Array.prototype.slice.call(
+      document.querySelectorAll("#timeline > ." + (wing === "past" ? "past" : "era"))
+    ).map(function (section) {
+      var use = section.querySelector(".era-icon use, .past-icon use");
+      return {
+        key: section.getAttribute(attr),
+        icon: use ? (use.getAttribute("href") || use.getAttribute("xlink:href")) : "",
+        label: textOf(section.querySelector(".era-title, h2"))
+      };
+    });
+    return rulerRooms[wing];
+  }
+
+  function rulerNode(wing, activeKey) {
+    var ruler = document.createElement("div");
+    ruler.className = "presenter-ruler";
+    // Decorative: the room is named on its opening slide and the year readout
+    // says it again, so a screen reader gains nothing from thirty-three
+    // unlabelled symbols in a row.
+    ruler.setAttribute("aria-hidden", "true");
+    roomsIn(wing).forEach(function (room) {
+      var mark = document.createElement("span");
+      mark.className = "presenter-ruler-mark" + (room.key && room.key === activeKey ? " is-here" : "");
+      mark.setAttribute("data-key", room.key || "");
+      mark.title = room.label;
+      if (room.icon) {
+        mark.innerHTML = '<svg aria-hidden="true" width="15" height="15"><use href="' + room.icon + '"></use></svg>';
+      }
+      ruler.appendChild(mark);
+    });
+    return ruler;
+  }
+
+  // On screen there is one ruler per wing, built once and moved into the
+  // fixed host as the walk crosses over; the marks are just re-lit per slide.
+  var rulerHost = null;
+  var rulerByWing = {};
+
+  function updateRuler(entry) {
+    if (!rulerHost) {
+      rulerHost = document.createElement("div");
+      rulerHost.id = "presenter-ruler";
+      rulerHost.hidden = true;
+      body.appendChild(rulerHost);
+    }
+    var wing = entry.wing || "future";
+    var key = entry.eraKey || entry.pastKey || "";
+    if (!rulerByWing[wing]) rulerByWing[wing] = rulerNode(wing, "");
+    var ruler = rulerByWing[wing];
+    if (ruler.parentNode !== rulerHost) {
+      rulerHost.innerHTML = "";
+      rulerHost.appendChild(ruler);
+    }
+    Array.prototype.forEach.call(ruler.querySelectorAll(".presenter-ruler-mark"), function (mark) {
+      mark.classList.toggle("is-here", !!key && mark.getAttribute("data-key") === key);
+    });
+    rulerHost.hidden = false;
+  }
+
+  function hideRuler() {
+    if (rulerHost) rulerHost.hidden = true;
   }
 
   function titleNode(era) {
@@ -351,8 +428,6 @@
   // where anybody was standing. It gets the same treatment as the closing
   // placard at the far end: a title slide, then a paragraph at a time.
   function introSlides(intro) {
-    var eyebrow = textOf(intro.querySelector(".future-intro-kicker"));
-
     // Cloned whole and then thinned out, rather than assembled from its
     // parts, because the opening title and its artwork are styled by descent
     // from .future-intro and would arrive at default size without it.
@@ -370,13 +445,13 @@
     // p:not([class]) is how the stylesheet itself picks out the lede
     // paragraphs from the kicker, the scroll note and the credit line.
     Array.prototype.forEach.call(intro.querySelectorAll("p:not([class])"), function (p) {
-      nodes.push(slideNode(eyebrow, "", [p]));
+      nodes.push(slideNode("", [p]));
     });
     // The credit line comes along — a deck claiming a future history should
     // say who invented it — but the note above it does not: "Scroll forward"
     // is an instruction for a page, and this is not one.
     var fineprint = intro.querySelector(".future-intro-fineprint");
-    if (fineprint) nodes.push(slideNode(eyebrow, "", [fineprint]));
+    if (fineprint) nodes.push(slideNode("", [fineprint]));
     return nodes;
   }
 
@@ -384,7 +459,6 @@
   // section with nothing to split — no opening placard, no era-grid and no
   // curator's note — which stays a single, unsplit slide.
   function buildEraSubslides(era) {
-    var eyebrow = textOf(era.querySelector(".era-kicker"));
     var nodes = [];
     var intro = era.querySelector(".future-intro");
     if (intro) nodes = nodes.concat(introSlides(intro));
@@ -398,7 +472,7 @@
       var placard = era.querySelector(".museum-text");
       if (!placard) return nodes.length ? nodes : null;
       nodes.push(titleNode(era));
-      nodes = nodes.concat(placardSlides(eyebrow, placard, "museum-text"));
+      nodes = nodes.concat(placardSlides(placard, "museum-text"));
       // The hinge is a signpost rather than a passage, and keeps the shape it
       // has on the page: a line, centred, under the mark that points back.
       var wingTurn = era.querySelector(".wing-turn");
@@ -423,20 +497,23 @@
     var dayInLife = exampleCard ? exampleCard.querySelector(".day-in-life") : null;
 
     nodes.push(titleNode(era));
-    if (subs[0]) nodes.push(slideNode(eyebrow, subs[0].label, subs[0].bodyHTML));
-    nodes = nodes.concat(cardSlides(eyebrow, callout));
-    if (subs[1]) nodes.push(slideNode(eyebrow, subs[1].label, subs[1].bodyHTML));
-    nodes = nodes.concat(cardSlides(eyebrow, exampleCard, ".day-in-life"));
-    if (subs[2]) nodes.push(slideNode(eyebrow, subs[2].label, subs[2].bodyHTML));
-    nodes = nodes.concat(dayInLifeSlides(eyebrow, dayInLife));
-    if (subs[3]) nodes.push(slideNode(eyebrow, subs[3].label, subs[3].bodyHTML));
-    nodes = nodes.concat(cardSlides(eyebrow, historicalNote));
+    if (subs[0]) nodes.push(slideNode(subs[0].label, subs[0].bodyHTML));
+    nodes = nodes.concat(cardSlides(callout));
+    if (subs[1]) nodes.push(slideNode(subs[1].label, subs[1].bodyHTML));
+    nodes = nodes.concat(cardSlides(exampleCard, ".day-in-life"));
+    if (subs[2]) nodes.push(slideNode(subs[2].label, subs[2].bodyHTML));
+    nodes = nodes.concat(dayInLifeSlides(dayInLife));
+    if (subs[3]) nodes.push(slideNode(subs[3].label, subs[3].bodyHTML));
+    nodes = nodes.concat(cardSlides(historicalNote));
     return nodes;
   }
 
   function makeVirtualEntry(node, eraKey, sectionId) {
     return {
       eraKey: eraKey, pastKey: null, sectionId: sectionId,
+      // Every built slide belongs to the forward gallery: the archive's rooms
+      // are shown whole rather than broken up.
+      wing: "future",
       fitEl: presenterVirtualSlide,
       // Built copy, all vector: it can be blown up past its natural size
       // to fill the wall when a slide is only a heading and a paragraph.
@@ -466,6 +543,7 @@
       eraKey: !isPast ? el.getAttribute("data-era") : null,
       pastKey: el.getAttribute("data-past"),
       sectionId: el.id || null,
+      wing: isPast ? "past" : "future",
       fitEl: el,
       // A live section, canvas widgets and all. Shrinking one is fine —
       // it is the same reflow the page already does at a narrower window
@@ -555,9 +633,9 @@
   // Capped as a share of the window as well, because a fixed 148px out of
   // a squashed 480px-tall one is a third of the wall spent on margins.
   var CHROME_TOP = 68;
-  var CHROME_BOTTOM = 80;
+  var CHROME_BOTTOM = 104;
   function chromeTop() { return Math.min(CHROME_TOP, window.innerHeight * 0.09); }
-  function chromeBottom() { return Math.min(CHROME_BOTTOM, window.innerHeight * 0.11); }
+  function chromeBottom() { return Math.min(CHROME_BOTTOM, window.innerHeight * 0.14); }
 
   function clearSlideBox(el) {
     el.style.width = "";
@@ -684,6 +762,7 @@
     requestAnimationFrame(refitCurrentSlide);
     setTimeout(refitCurrentSlide, 400);
     watchSlideContent(slide);
+    updateRuler(slide);
 
     if (slide.eraKey) {
       body.dataset.era = slide.eraKey;
@@ -749,6 +828,7 @@
     presenterExit.hidden = true;
     presenterToggle.setAttribute("aria-pressed", "false");
     presenterToggle.setAttribute("aria-label", "Enter presenter mode");
+    hideRuler();
 
     var slide = presenterSlides[presenterIndex];
     if (slide) slide.hide();
@@ -871,6 +951,11 @@
     fit.className = "print-fit";
     fit.appendChild(content);
     page.appendChild(fit);
+    // Outside the fitted box on purpose: the ruler is the page's furniture,
+    // not part of what is being said on it, so it stays the same size whatever
+    // scale the slide came out at — exactly as it does on screen, where it is
+    // fixed chrome rather than something inside the slide.
+    page.appendChild(rulerNode(entry.wing || "future", entry.eraKey || entry.pastKey || ""));
     return page;
   }
 

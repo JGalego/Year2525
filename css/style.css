@@ -210,6 +210,59 @@ body[data-past] .dotnav { display: none; }
 .presenter-pdf { margin-left: .1rem; }
 .presenter-pdf-icon { width: 15px; height: 15px; flex: none; }
 
+/* The ruler: one symbol per room in the wing being walked, on a hairline
+   rail, with the room you are standing in lit and ticked. It sits above the
+   controls — both centred, so they stack rather than compete for the corner —
+   and it is chrome rather than slide content, which is why it keeps its size
+   whatever scale the slide it belongs to came out at. */
+.presenter-ruler {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: .55rem;
+  padding-bottom: .4rem;
+  border-bottom: 1px solid var(--border);
+  transition: var(--transition-era);
+}
+.presenter-ruler-mark {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  opacity: .5;
+  transition: color .3s ease, opacity .3s ease;
+}
+.presenter-ruler-mark svg { display: block; width: 15px; height: 15px; }
+.presenter-ruler-mark.is-here { color: var(--accent); opacity: 1; }
+/* The tick sits on the rail rather than beside the symbol, so the eye finds
+   the position first and the symbol second. */
+.presenter-ruler-mark.is-here::after {
+  content: "";
+  position: absolute;
+  left: -.2rem;
+  right: -.2rem;
+  bottom: calc(-.4rem - 1px);
+  height: 2px;
+  background: var(--accent);
+}
+
+#presenter-ruler {
+  position: fixed;
+  bottom: 4.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  max-width: calc(100vw - 2.5rem);
+}
+/* Twenty-three rooms in the archive is a wide rule for a phone. The marks
+   close up rather than wrapping, because a rail that wraps stops reading as
+   one. */
+@media (max-width: 760px) {
+  #presenter-ruler .presenter-ruler { gap: .3rem; }
+  #presenter-ruler .presenter-ruler-mark svg { width: 11px; height: 11px; }
+}
+
 .presenter-exit {
   position: fixed;
   top: 1rem; right: 1rem;
@@ -306,13 +359,14 @@ body.presenter-mode .past-intro.presenter-current > * {
    life/Historical Importance passages, the closing placard — with its
    content swapped in per slide rather than cloning a hundred-odd sections.
 
-   They all wear the same three parts in the same places: an eyebrow naming
-   the room, a heading naming the passage, and the prose. The alternative,
-   which this had at first, is to hand the site's own cards over as they
-   stand — and a card is a box with a small label in the other accent, so
-   walking one era alternated between two kinds of slide. A box is how you
-   set an aside apart from the column beside it; on a slide of its own there
-   is nothing to set it apart from. */
+   They all wear the same two parts in the same places: a heading naming the
+   passage, and the prose. Which room it belongs to is said once, on the
+   room's opening slide, and carried from there by the ruler along the foot.
+   The alternative, which this had at first, is to hand the site's own cards
+   over as they stand — and a card is a box with a small label in the other
+   accent, so walking one era alternated between two kinds of slide. A box is
+   how you set an aside apart from the column beside it; on a slide of its
+   own there is nothing to set it apart from. */
 #presenter-virtual-slide { text-align: left; }
 .presenter-sub { max-width: var(--maxw); margin: 0 auto; width: 100%; }
 .presenter-sub-title { text-align: left; }
@@ -331,14 +385,6 @@ body.presenter-mode .past-intro.presenter-current > * {
 /* The sizes below are what the slide would *like* to be. They are a
    starting point, not a promise: the fitter scales the whole slide down
    from here when the exhibit it is showing has more on it than this. */
-.presenter-sub-eyebrow {
-  font-family: var(--font-mono);
-  text-transform: uppercase;
-  letter-spacing: .12em;
-  font-size: .8rem;
-  color: var(--accent);
-  margin-bottom: 1.4rem;
-}
 .presenter-sub-heading {
   font-family: var(--font-display);
   font-size: clamp(2rem, 5.5vw, 3.4rem);
@@ -370,13 +416,9 @@ body.presenter-mode .past-intro.presenter-current > * {
 .presenter-sub-closer .wing-turn { border-top: none; padding-top: 0; margin-top: 0; }
 .presenter-sub-closer { max-width: 42em; margin: 0 auto; }
 
-/* The room's name stays on the widget slide too, so an era's last slide is
-   still recognisably part of the era. It is the section's own kicker, which
-   is already sitting there — it just stops being hidden with the rest. */
-body.presenter-mode .era.presenter-current.presenter-widget-only > .era-inner > *:not(.interactive-block):not(.changelog):not(.era-kicker) {
+body.presenter-mode .era.presenter-current.presenter-widget-only > .era-inner > *:not(.interactive-block):not(.changelog) {
   display: none !important;
 }
-body.presenter-mode .presenter-widget-only .era-kicker { margin-bottom: 2rem; }
 body.presenter-mode .era.presenter-current.presenter-widget-only > .era-inner {
   display: flex;
   flex-direction: column;
@@ -422,7 +464,16 @@ body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05r
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 2.5rem 3.5rem;
+  /* The foot leaves the ruler its rail. */
+  padding: 2.5rem 3.5rem 4.5rem;
+}
+/* Same ruler as on screen, in the same place, and outside .print-fit so it
+   does not scale with the slide. */
+.print-page > .presenter-ruler {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 .print-fit > * { width: 100%; }
 /* Mirrors #presenter-virtual-slide: the built slides are set left, the
