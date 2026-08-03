@@ -172,6 +172,392 @@ code { font-family: var(--font-mono); background: rgba(255,255,255,0.08); paddin
    back through the other wing there is nothing for it to point at. */
 body[data-past] .dotnav { display: none; }
 
+/* ---------------------------- presenter mode ---------------------------- */
+
+.presenter-controls {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: .4rem .5rem;
+  box-shadow: 0 6px 24px rgba(0,0,0,.35);
+  font-family: var(--font-mono);
+  font-size: .8rem;
+  transition: var(--transition-era);
+}
+.presenter-controls button {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 50%;
+  width: 30px; height: 30px;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .2s ease, border-color .2s ease;
+}
+.presenter-controls button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.presenter-controls button:disabled { opacity: .35; cursor: default; }
+.presenter-counter { color: var(--muted); min-width: 4.5em; text-align: center; user-select: none; }
+.presenter-pdf { margin-left: .1rem; }
+.presenter-pdf-icon { width: 15px; height: 15px; flex: none; }
+
+/* The ruler: one symbol per room in the wing being walked, on a hairline
+   rail, with the room you are standing in lit and ticked. It sits above the
+   controls — both centred, so they stack rather than compete for the corner —
+   and it is chrome rather than slide content, which is why it keeps its size
+   whatever scale the slide it belongs to came out at. */
+.presenter-ruler {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: .55rem;
+  padding-bottom: .4rem;
+  border-bottom: 1px solid var(--border);
+  transition: var(--transition-era);
+}
+.presenter-ruler-mark {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  opacity: .5;
+  transition: color .3s ease, opacity .3s ease;
+}
+.presenter-ruler-mark svg { display: block; width: 15px; height: 15px; }
+.presenter-ruler-mark.is-here { color: var(--accent); opacity: 1; }
+/* The tick sits on the rail rather than beside the symbol, so the eye finds
+   the position first and the symbol second. */
+.presenter-ruler-mark.is-here::after {
+  content: "";
+  position: absolute;
+  left: -.2rem;
+  right: -.2rem;
+  bottom: calc(-.4rem - 1px);
+  height: 2px;
+  background: var(--accent);
+}
+
+#presenter-ruler {
+  position: fixed;
+  bottom: 4.6rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  max-width: calc(100vw - 2.5rem);
+}
+/* Twenty-three rooms in the archive is a wide rule for a phone. The marks
+   close up rather than wrapping, because a rail that wraps stops reading as
+   one. */
+@media (max-width: 760px) {
+  #presenter-ruler .presenter-ruler { gap: .3rem; }
+  #presenter-ruler .presenter-ruler-mark svg { width: 11px; height: 11px; }
+}
+
+.presenter-exit {
+  position: fixed;
+  top: 1rem; right: 1rem;
+  z-index: 200;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .2s ease, border-color .2s ease;
+}
+.presenter-exit:hover { color: var(--accent); border-color: var(--accent); }
+
+body.presenter-mode { overflow: hidden; }
+body.presenter-mode .site-footer { display: none; }
+body.presenter-mode .dotnav { display: none !important; }
+body.presenter-mode .year-counter { cursor: default; }
+
+body.presenter-mode #timeline {
+  display: block !important;
+}
+body.presenter-mode .era,
+body.presenter-mode .past,
+body.presenter-mode .past-intro {
+  display: none !important;
+}
+body.presenter-mode .era.presenter-current,
+body.presenter-mode .past.presenter-current,
+body.presenter-mode .past-intro.presenter-current {
+  display: flex !important;
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 5;
+  overflow: hidden;
+  border-bottom: none;
+  /* Only the sides are set here: the vertical padding is the room the
+     header and the controls pill sit in, and JS sets it per slide so it
+     does not scale down with the slide. */
+  padding: 0 3rem;
+  /* Normally a section just sits on the body's background in the flow.
+     Once the timeline collapses to zero height behind a fixed slide, the
+     footer moves up to y=0 and shows through the slide's transparent
+     padding — so the current slide needs its own opaque background. */
+  background: var(--bg);
+  /* JS sizes the slide in explicit pixels: it lays the slide out in a
+     virtual viewport of vw/s by vh/s and scales it back down by s, so
+     that whatever is on it lands inside one screen. Three of the flow
+     styles fight that box and have to stand down while it is a slide.
+     A min-height in vh resolves against the *real* viewport while the
+     box is measured in virtual pixels, so it would prop every short
+     slide up past its own height; max-width would cap the virtual box
+     at 880px and leave the rest of the screen empty; and a centring
+     auto margin would then push what is left of it off to the side. */
+  min-height: 0;
+  max-width: none;
+  margin: 0;
+  transform-origin: 0 0;
+}
+/* Only reachable if a slide still does not fit at the smallest scale the
+   fitter will go to — at which point scrolling it is better than cutting
+   it off. Centred content taller than its box overflows equally above and
+   below, putting the true top out of reach of scrollTop = 0, so the
+   alignment has to give way with it. .era is a row-direction flex
+   container (its vertical axis is the cross axis: align-items);
+   .past/.past-intro are column-direction (vertical axis is the main axis:
+   justify-content) — same fix, different property per axis. */
+body.presenter-mode .presenter-current.presenter-scroll { overflow-y: auto; }
+body.presenter-mode .era.presenter-current.presenter-scroll { align-items: flex-start !important; }
+body.presenter-mode .past.presenter-current.presenter-scroll,
+body.presenter-mode .past-intro.presenter-current.presenter-scroll { justify-content: flex-start !important; }
+
+/* The archive's opening slide is the one section that carried its own
+   --maxw and centred itself; with those off the box it needs them back on
+   what is inside it, or the tagline runs the full width of the wall. */
+body.presenter-mode .past-intro.presenter-current > * {
+  width: 100%;
+  max-width: var(--maxw);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 700px) {
+  body.presenter-mode .era.presenter-current,
+  body.presenter-mode .past.presenter-current,
+  body.presenter-mode .past-intro.presenter-current { padding-left: 1.25rem; padding-right: 1.25rem; }
+}
+
+/* A single reusable slide for the walkthrough's built slides — the opening
+   placard, each era's title and subsections, the Successor/Example/Day-in-
+   life/Historical Importance passages, the closing placard — with its
+   content swapped in per slide rather than cloning a hundred-odd sections.
+
+   They all wear the same two parts in the same places: a heading naming the
+   passage, and the prose. Which room it belongs to is said once, on the
+   room's opening slide, and carried from there by the ruler along the foot.
+   The alternative, which this had at first, is to hand the site's own cards
+   over as they stand — and a card is a box with a small label in the other
+   accent, so walking one era alternated between two kinds of slide. A box is
+   how you set an aside apart from the column beside it; on a slide of its
+   own there is nothing to set it apart from. */
+#presenter-virtual-slide { text-align: left; }
+.presenter-sub { max-width: var(--maxw); margin: 0 auto; width: 100%; }
+.presenter-sub-title { text-align: left; }
+.presenter-sub-title .era-icon { width: 3rem; height: 3rem; margin-bottom: 1.5rem; }
+.presenter-sub-title .era-art { max-width: min(100%, 780px); margin: 1.5rem auto 0; }
+/* The opening placard is cloned rather than rebuilt, so its own frame comes
+   with it: on the page it is an introduction the gallery continues below, and
+   the rule and the space under it are how it says so. A slide has an edge of
+   its own and needs neither. */
+.presenter-sub-title .future-intro {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border-bottom: none;
+}
+/* The sizes below are what the slide would *like* to be. They are a
+   starting point, not a promise: the fitter scales the whole slide down
+   from here when the exhibit it is showing has more on it than this. */
+.presenter-sub-heading {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5.5vw, 3.4rem);
+  color: var(--accent2);
+  margin-bottom: .7em;
+}
+.presenter-sub-body {
+  font-size: clamp(1.15rem, 2.3vw, 1.55rem);
+  line-height: 1.65;
+  max-width: 38em;
+}
+/* Sized against the slide's body text rather than the page's: the
+   placard's thesis is a step up from the paragraphs around it, and a
+   fixed 1.3rem would arrive on a slide as a step down from them. The same
+   goes the other way for the credit line, which is deliberately the
+   smallest voice in the room and should stay in proportion to the rest. */
+.presenter-sub-body .thesis { font-size: 1.15em; }
+.presenter-sub-body .future-intro-fineprint {
+  font-size: .78em;
+  max-width: none;
+  margin: 0;
+  padding-top: 0;
+  border-top: none;
+}
+/* Both of these earn a rule above them by sitting at the bottom of
+   something longer. On a slide of their own there is nothing above them
+   to be divided from. */
+.presenter-sub-body .wing-turn,
+.presenter-sub-closer .wing-turn { border-top: none; padding-top: 0; margin-top: 0; }
+.presenter-sub-closer { max-width: 42em; margin: 0 auto; }
+
+body.presenter-mode .era.presenter-current.presenter-widget-only > .era-inner > *:not(.interactive-block):not(.changelog) {
+  display: none !important;
+}
+body.presenter-mode .era.presenter-current.presenter-widget-only > .era-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+}
+body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05rem; }
+
+/* ------------------------- presenter pdf export ------------------------- */
+
+/* One 1280x720 box per slide, which is 13.333in x 7.5in at 96dpi — the 16:9
+   page every deck tool defaults to. Because the page is an exact pixel
+   multiple, what the fitter measures here is what lands on the page with no
+   print-time rescaling in between. The stack has to be laid out for that
+   measurement to mean anything, so it is parked off to the side rather than
+   display:none, and put back into the flow for print only. */
+#presenter-print {
+  position: absolute;
+  top: 0;
+  left: -200vw;
+  width: 1280px;
+}
+.print-page {
+  position: relative;
+  width: 1280px;
+  height: 720px;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 1.05rem;
+  line-height: 1.65;
+  /* Chrome leaves background colour out of print output unless the visitor
+     finds the "Background graphics" checkbox. A gallery that prints its
+     dark rooms white is not the gallery, so every page opts back in. */
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.print-fit {
+  position: absolute;
+  top: 0; left: 0;
+  transform-origin: 0 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* The foot leaves the ruler its rail. */
+  padding: 2.5rem 3.5rem 4.5rem;
+}
+/* Same ruler as on screen, in the same place, and outside .print-fit so it
+   does not scale with the slide. */
+.print-page > .presenter-ruler {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.print-fit > * { width: 100%; }
+/* Mirrors #presenter-virtual-slide: the built slides are set left, the
+   archive's own sections keep the centring they have on the page. */
+.print-page-sub .print-fit { text-align: left; }
+/* An export runs from inside presenter mode, which hides the gallery's
+   sections while it is showing one of them — and these pages are built out
+   of copies of those same sections, which that rule reaches into and hides
+   too. Left alone, the whole archive measures as nothing, "fits" trivially
+   and prints as blank pages. The id outranks it; flex is what all three of
+   them are in the stylesheet already. */
+#presenter-print .era,
+#presenter-print .past,
+#presenter-print .past-intro { display: flex !important; }
+/* The sections arrive as clones of themselves, still carrying the height and
+   frame they use in a scroll. On a page of their own they are the page. */
+.print-page .past,
+.print-page .past-intro,
+.print-page .era {
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  max-width: none;
+  border-bottom: none;
+}
+/* A room that paints its own background is the page rather than a panel on
+   it: the padding moves inside the section and the section grows to fill the
+   fitted box, so the background runs to all four edges the way it does on
+   screen, where the slide *is* the section. Its own centring keeps what is
+   written on it in the middle. */
+.print-page-exhibit .print-fit { padding: 0; }
+.print-page-exhibit .print-fit > .past,
+.print-page-exhibit .print-fit > .past-intro {
+  flex: 1;
+  padding: 2.5rem 3.5rem 4.5rem;
+}
+
+.print-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .9rem;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  font-family: var(--font-mono);
+  font-size: .85rem;
+  color: var(--fg);
+  text-align: center;
+  padding: 2rem;
+}
+.print-overlay-note { color: var(--muted); max-width: 34ch; line-height: 1.7; }
+.print-overlay-bar {
+  width: min(320px, 70vw);
+  height: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+.print-overlay-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width .2s linear;
+}
+
+@media print {
+  /* 13.333in x 7.5in, stated in the pixels the pages are built in so the
+     two cannot round apart and spill a blank page after every slide. */
+  @page { size: 1280px 720px; margin: 0; }
+  /* Only reachable once an export has built the stack: printing the page
+     itself, from the browser's own menu, is left exactly as it was. */
+  body.presenter-printing > *:not(#presenter-print) { display: none !important; }
+  body.presenter-printing #presenter-print {
+    position: static;
+    left: auto;
+    width: auto;
+  }
+  body.presenter-printing .print-page { break-after: page; page-break-after: always; }
+  body.presenter-printing .print-page:last-child { break-after: auto; page-break-after: auto; }
+}
+
 /* ---------------------------- era layout ---------------------------- */
 
 .era {
