@@ -10,6 +10,8 @@ There is a score, on by default, with the speaker in the header to silence it (t
 
 Thirty-three exhibits, twenty-eight of them interactive. Nothing is hidden behind a mode: the year counter in the header is a readout, not a control, and it reports whatever room you are standing in — 2026 up to 12,525, then all the way back to before anyone had a word for any of it.
 
+There is also a presenter mode, on the screen icon in the header, which walks the same gallery as slides — arrow keys, space, or the pill at the bottom; escape to leave, and you land back at the exhibit you were on. It breaks each forward era into a title slide, one slide per subsection, and a closing slide for its widget, which stays live and usable on the slide. Every slide fits on one screen: rather than picking a type size and hoping, a slide is laid out in a virtual viewport and scaled to the real one by whatever factor makes it fit, so nothing scrolls off the bottom and nothing on the site had to be shortened to make room. Slides with space left over scale up into it instead.
+
 ## Stack
 
 Plain HTML, CSS, and vanilla JavaScript. No build step, no framework, no dependencies — deployable as-is on GitHub Pages (see `.github/workflows/pages.yml`).
@@ -28,6 +30,6 @@ Then open `http://localhost:8000`.
 
 - `index.html` — every exhibit, in one `<main>`, in scroll order
 - `css/style.css` — base layout plus a distinct visual theme per era
-- `js/main.js` — scroll-driven era theming, the year readout, dot nav, typed easter eggs
+- `js/main.js` — scroll-driven era theming, the year readout, dot nav, typed easter eggs, presenter mode and its slide fitter
 - `js/score.js` — the procedural score (Web Audio, no files)
 - `js/widgets.js` — the per-era interactive experiences (canvas + DOM), lazily initialized

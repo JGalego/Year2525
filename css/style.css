@@ -172,6 +172,185 @@ code { font-family: var(--font-mono); background: rgba(255,255,255,0.08); paddin
    back through the other wing there is nothing for it to point at. */
 body[data-past] .dotnav { display: none; }
 
+/* ---------------------------- presenter mode ---------------------------- */
+
+.presenter-controls {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: .4rem .5rem;
+  box-shadow: 0 6px 24px rgba(0,0,0,.35);
+  font-family: var(--font-mono);
+  font-size: .8rem;
+  transition: var(--transition-era);
+}
+.presenter-controls button {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  border-radius: 50%;
+  width: 30px; height: 30px;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .2s ease, border-color .2s ease;
+}
+.presenter-controls button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.presenter-controls button:disabled { opacity: .35; cursor: default; }
+.presenter-counter { color: var(--muted); min-width: 4.5em; text-align: center; user-select: none; }
+
+.presenter-exit {
+  position: fixed;
+  top: 1rem; right: 1rem;
+  z-index: 200;
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: color .2s ease, border-color .2s ease;
+}
+.presenter-exit:hover { color: var(--accent); border-color: var(--accent); }
+
+body.presenter-mode { overflow: hidden; }
+body.presenter-mode .site-footer { display: none; }
+body.presenter-mode .dotnav { display: none !important; }
+body.presenter-mode .year-counter { cursor: default; }
+
+body.presenter-mode #timeline {
+  display: block !important;
+}
+body.presenter-mode .era,
+body.presenter-mode .past,
+body.presenter-mode .past-intro {
+  display: none !important;
+}
+body.presenter-mode .era.presenter-current,
+body.presenter-mode .past.presenter-current,
+body.presenter-mode .past-intro.presenter-current {
+  display: flex !important;
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 5;
+  overflow: hidden;
+  border-bottom: none;
+  /* Only the sides are set here: the vertical padding is the room the
+     header and the controls pill sit in, and JS sets it per slide so it
+     does not scale down with the slide. */
+  padding: 0 3rem;
+  /* Normally a section just sits on the body's background in the flow.
+     Once the timeline collapses to zero height behind a fixed slide, the
+     footer moves up to y=0 and shows through the slide's transparent
+     padding — so the current slide needs its own opaque background. */
+  background: var(--bg);
+  /* JS sizes the slide in explicit pixels: it lays the slide out in a
+     virtual viewport of vw/s by vh/s and scales it back down by s, so
+     that whatever is on it lands inside one screen. Three of the flow
+     styles fight that box and have to stand down while it is a slide.
+     A min-height in vh resolves against the *real* viewport while the
+     box is measured in virtual pixels, so it would prop every short
+     slide up past its own height; max-width would cap the virtual box
+     at 880px and leave the rest of the screen empty; and a centring
+     auto margin would then push what is left of it off to the side. */
+  min-height: 0;
+  max-width: none;
+  margin: 0;
+  transform-origin: 0 0;
+}
+/* Only reachable if a slide still does not fit at the smallest scale the
+   fitter will go to — at which point scrolling it is better than cutting
+   it off. Centred content taller than its box overflows equally above and
+   below, putting the true top out of reach of scrollTop = 0, so the
+   alignment has to give way with it. .era is a row-direction flex
+   container (its vertical axis is the cross axis: align-items);
+   .past/.past-intro are column-direction (vertical axis is the main axis:
+   justify-content) — same fix, different property per axis. */
+body.presenter-mode .presenter-current.presenter-scroll { overflow-y: auto; }
+body.presenter-mode .era.presenter-current.presenter-scroll { align-items: flex-start !important; }
+body.presenter-mode .past.presenter-current.presenter-scroll,
+body.presenter-mode .past-intro.presenter-current.presenter-scroll { justify-content: flex-start !important; }
+
+/* The archive's opening slide is the one section that carried its own
+   --maxw and centred itself; with those off the box it needs them back on
+   what is inside it, or the tagline runs the full width of the wall. */
+body.presenter-mode .past-intro.presenter-current > * {
+  width: 100%;
+  max-width: var(--maxw);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+@media (max-width: 700px) {
+  body.presenter-mode .era.presenter-current,
+  body.presenter-mode .past.presenter-current,
+  body.presenter-mode .past-intro.presenter-current { padding-left: 1.25rem; padding-right: 1.25rem; }
+}
+
+/* A single reusable slide for the per-subsection breakdown of a forward
+   era (title / Civilisation / Successor / Technology / Example /
+   Intelligence / Day-in-life / Creation / Historical Importance) — its
+   content is swapped in per slide rather than cloning 90 static sections. */
+#presenter-virtual-slide { text-align: left; }
+.presenter-sub { max-width: var(--maxw); margin: 0 auto; width: 100%; }
+.presenter-sub-title { text-align: left; }
+.presenter-sub-title .era-icon { width: 3rem; height: 3rem; margin-bottom: 1.5rem; }
+.presenter-sub-title .era-art { max-width: min(100%, 780px); margin: 1.5rem auto 0; }
+/* The sizes below are what the slide would *like* to be. They are a
+   starting point, not a promise: the fitter scales the whole slide down
+   from here when the exhibit it is showing has more on it than this. */
+.presenter-sub-heading {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5.5vw, 3.4rem);
+  color: var(--accent2);
+  margin-bottom: .7em;
+}
+.presenter-sub-body {
+  font-size: clamp(1.15rem, 2.3vw, 1.55rem);
+  line-height: 1.65;
+  max-width: 38em;
+}
+/* Sized against the slide's body text rather than the page's: the
+   placard's thesis is a step up from the paragraphs around it, and a
+   fixed 1.3rem would arrive on a slide as a step down from them. */
+.presenter-sub-body .thesis { font-size: 1.15em; }
+.presenter-sub-card { max-width: 42em; margin: 0 auto; }
+.presenter-sub-card .callout,
+.presenter-sub-card .example-card,
+.presenter-sub-card .historical-note {
+  font-size: 1.25rem;
+  margin-bottom: 0;
+}
+/* Both of these earn a rule above them by sitting at the bottom of
+   something longer. On a slide of their own there is nothing above them
+   to be divided from. */
+.presenter-sub-card .day-in-life,
+.presenter-sub-card .wing-turn { border-top: none; padding-top: 0; margin-top: 0; }
+.presenter-sub-card .day-in-life { font-size: 1.25rem; }
+
+body.presenter-mode .era.presenter-current.presenter-widget-only > .era-inner > *:not(.interactive-block):not(.changelog) {
+  display: none !important;
+}
+body.presenter-mode .era.presenter-current.presenter-widget-only > .era-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+}
+body.presenter-mode .presenter-widget-only .interactive-block { font-size: 1.05rem; }
+
 /* ---------------------------- era layout ---------------------------- */
 
 .era {
