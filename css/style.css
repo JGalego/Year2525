@@ -116,7 +116,16 @@ code { font-family: var(--font-mono); background: rgba(255,255,255,0.08); paddin
 .header-btn-icon { width: 16px; height: 16px; flex: none; }
 /* On, but the browser has not had the gesture it needs yet. Shown dimmed
    so the control is not claiming to be playing while it is silent. */
-.header-btn.is-pending { opacity: .55; }
+/* On, but the browser has not granted sound yet. It breathes rather than
+   sitting dimmed: someone who expected the score on arrival has to be able
+   to see that the control is waiting on them, and a static faded icon in
+   the corner of a header reads as decoration. Neutralised by the
+   reduced-motion rule at the top, like every other animation here. */
+.header-btn.is-pending { animation: sound-pending 2.6s ease-in-out infinite; }
+@keyframes sound-pending {
+  0%, 100% { opacity: .38; }
+  50% { opacity: 1; }
+}
 
 .dotnav {
   margin-left: auto;

@@ -337,17 +337,19 @@
     if (ctx && ctx.state === "suspended") ctx.resume().then(sync, sync);
     else if (!playing) start();
   }
+  // One list rather than two hand-kept sets, so an event can never be
+  // armed without also being disarmed. pointerup and click are in here
+  // because pointerdown does not grant user activation on a touchscreen —
+  // a touch that might still become a scroll cannot — and click is the
+  // one an assistive technology or a keyboard-activated control emits.
+  var GESTURES = ["pointerdown", "pointerup", "touchend", "click", "keydown"];
   function armForGesture() {
     pending = true;
-    document.addEventListener("pointerdown", onGesture);
-    document.addEventListener("keydown", onGesture);
-    document.addEventListener("touchend", onGesture);
+    GESTURES.forEach(function (t) { document.addEventListener(t, onGesture); });
   }
   function disarm() {
     pending = false;
-    document.removeEventListener("pointerdown", onGesture);
-    document.removeEventListener("keydown", onGesture);
-    document.removeEventListener("touchend", onGesture);
+    GESTURES.forEach(function (t) { document.removeEventListener(t, onGesture); });
   }
 
   // On unless it has been turned off before — and now it actually tries to
