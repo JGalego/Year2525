@@ -370,8 +370,16 @@
        solid, a weather system, and finally a thing with no edges left. The
        dissolution is literally perspective — each station is smaller,
        paler, softer and less object-like than the one in front of it,
-       until the far end is only light. A visitor at the near end fixes the
-       scale, and the polished floor doubles everything.
+       until the far end is only light.
+
+       The room is built, not implied: a coffered ceiling with a skylight
+       strip running its length, an arched left wall carrying a pilaster
+       over every station and a placard in every near bay, a walkway inlay
+       up the middle of the polished floor, a stanchion cordon along the
+       cases, a bench, and visitors at four depths to fix the scale. Two
+       volumetric shafts fall from the skylight through the dust. Every
+       piece derives from the same perspective factor, so a thing's
+       distance is the only fact that decides how present it is.
 
        This shares the grammar of the other nine scenes but runs high-key,
        like PRESENT: the intro sits inside the light present-day era and
@@ -407,6 +415,80 @@
       }));
       keyLight(sc, "key", VP.x, VP.y, 250, "var(--accent)", 0.20);
 
+      // Shared perspective helpers. Everything in the room — stations,
+      // pilasters, rail posts, banner hangs — derives from this one scale
+      // factor, so a thing's depth decides everything else about it.
+      function S(x) { return (VP.x - x) / (VP.x - NEAR_X); }
+      function wallBase(x) { return VP.y + (NEAR_BASE - VP.y) * S(x); }
+      function wallTop(x) { return VP.y - (VP.y - 14) * S(x); }
+      // Station positions, needed this early because the wall ranges its
+      // pilasters on them.
+      var XS = [52, 158, 248, 322, 383, 432, 470, 498];
+
+      // Coffered ceiling: rays running down the gallery axis, transverse
+      // beams bunching toward the horizon, each beam's left end landing
+      // exactly on the cornice where the wall takes over.
+      var coffer = group({ stroke: "var(--fg)" });
+      for (var cg = 0; cg <= 500; cg += 90) {
+        coffer.appendChild(line(cg, -16, VP.x + (cg - VP.x) * 0.05, VP.y - 2, { opacity: 0.09, "stroke-width": 0.7 }));
+      }
+      [1.0, 0.66, 0.44, 0.29, 0.19].forEach(function (bs) {
+        coffer.appendChild(line(VP.x - (VP.x - NEAR_X) * bs, VP.y - (VP.y - 14) * bs, W + 20, VP.y - (VP.y - 14) * bs, {
+          opacity: 0.13 * bs + 0.03, "stroke-width": 0.7
+        }));
+      });
+      sc.add(coffer);
+
+      // A skylight strip running the length of the room — the light the
+      // lamps only supplement — ribbed on the same bunching curve.
+      sc.add(polygon(pts(["168,-16", "428,-16", VP.x + "," + VP.y]), {
+        fill: sc.linear("skyl", 0, -16, 0, VP.y, [
+          [0, "#ffffff", 0.30], [0.7, "#ffffff", 0.10], [1, "#ffffff", 0]
+        ], true), stroke: "none", style: "mix-blend-mode:screen"
+      }));
+      var ribs = group({ stroke: "var(--fg)" });
+      for (var ri = 1; ri < 9; ri++) {
+        var rs = 1 / (1 + (ri / 8) * 5.2);
+        ribs.appendChild(line(
+          VP.x - (VP.x - 168) * rs, VP.y - (VP.y + 16) * rs,
+          VP.x - (VP.x - 428) * rs, VP.y - (VP.y + 16) * rs,
+          { opacity: 0.15 * rs + 0.02, "stroke-width": 1.5 * rs + 0.3 }
+        ));
+      }
+      sc.add(ribs);
+
+      // The left wall itself: a cornice doubled by a moulding line, a dado
+      // rail at hip height, a pilaster rising over every station and an
+      // arched bay between each pair, with a placard centred in the nearer
+      // bays. This is what makes it architecture instead of a void.
+      var wall = group({ stroke: "var(--fg)" });
+      wall.appendChild(line(0, wallTop(0), VP.x, VP.y, { opacity: 0.26, "stroke-width": 0.9 }));
+      wall.appendChild(line(0, wallTop(0) + 5.5, VP.x, VP.y, { opacity: 0.11, "stroke-width": 0.7 }));
+      wall.appendChild(line(0, VP.y + (146 - VP.y) * S(0), VP.x, VP.y, { opacity: 0.10, "stroke-width": 0.7 }));
+      function spring(x) { return VP.y - (VP.y - 44) * S(x); }
+      XS.forEach(function (px2, pi) {
+        var ps = S(px2);
+        wall.appendChild(line(px2, wallBase(px2), px2, wallTop(px2), {
+          opacity: 0.13 * ps + 0.03, "stroke-width": 1.5 * ps + 0.3
+        }));
+        if (pi >= XS.length - 1) return;
+        var qx = XS[pi + 1], mx = (px2 + qx) / 2, ms = S(mx);
+        wall.appendChild(path(
+          "M" + (px2 + 4 * ps) + " " + spring(px2) +
+          " Q" + mx + " " + (VP.y - (VP.y - 20) * ms) + " " + (qx - 4 * S(qx)) + " " + spring(qx),
+          { opacity: 0.15 * ms + 0.03, "stroke-width": 1.1 * ms + 0.3 }
+        ));
+        if (pi < 4) {
+          var lw = 13 * ms, lh = 8 * ms, ly2 = VP.y - (VP.y - 74) * ms;
+          wall.appendChild(rect(mx - lw / 2, ly2, lw, lh, {
+            fill: "var(--bg2)", "fill-opacity": 0.35, opacity: 0.2 * ms + 0.04, "stroke-width": 0.7
+          }));
+          wall.appendChild(line(mx - lw * 0.3, ly2 + lh * 0.38, mx + lw * 0.3, ly2 + lh * 0.38, { opacity: 0.22 * ms }));
+          wall.appendChild(line(mx - lw * 0.3, ly2 + lh * 0.68, mx + lw * 0.08, ly2 + lh * 0.68, { opacity: 0.15 * ms }));
+        }
+      });
+      sc.add(wall);
+
       // Converging floor lines. Transverse spacing is squared so the
       // courses bunch toward the horizon instead of marching evenly.
       var grid = group({ opacity: 0.12, "stroke-width": 0.7, stroke: "var(--fg)" });
@@ -439,7 +521,16 @@
         stroke: "var(--fg)", "stroke-width": 0.9, opacity: 0.2
       }));
 
-      // A receding run of ceiling lamps: the reason there is light here.
+      // The visitors' walkway: a lighter inlay strip up the middle of the
+      // floor, edged — so the room has a route, not just a surface.
+      sc.add(polygon(pts(["128," + (H + 12), "436," + (H + 12), VP.x + "," + (VP.y + 2)]), {
+        fill: sc.linear("walk", 0, H, 0, VP.y, [[0, "#ffffff", 0.10], [1, "#ffffff", 0]], true),
+        stroke: "none", style: "mix-blend-mode:screen"
+      }));
+      sc.add(line(128, H + 12, VP.x, VP.y + 2, { stroke: "var(--fg)", opacity: 0.15, "stroke-width": 0.8 }));
+      sc.add(line(436, H + 12, VP.x, VP.y + 2, { stroke: "var(--fg)", opacity: 0.15, "stroke-width": 0.8 }));
+
+      // A receding run of ceiling lamps, supplementing the skylight.
       var lamps = group({ filter: sc.bloom("lamp", 1.8) });
       for (var li = 0; li < 7; li++) {
         var lt = li / 6;
@@ -452,6 +543,11 @@
       }
       sc.add(lamps);
 
+      // Two volumetric shafts from the skylight, made visible by the dust
+      // they fall through, pooling on the walkway between stations.
+      shaft(sc, "shaft1", [252, 20], [216, 178], [300, 178], "#ffffff", 0.13, 4);
+      shaft(sc, "shaft2", [364, 46], [336, 162], [396, 162], "#ffffff", 0.09, 3);
+
       /* -- the six stations ------------------------------------------------
          One vitrine per successor state. Scale, baseline height, ink and
          blur all derive from the same perspective factor, so a station's
@@ -459,8 +555,9 @@
       // The last two hold nothing: the gallery keeps going past the point
       // where this page can name what is in the cases.
       var KINDS = ["app", "law", "grow", "fold", "weather", "hum", "gone", "gone"];
-      var XS = [52, 158, 248, 322, 383, 432, 470, 498];
+      // XS is declared above, where the wall ranges its pilasters on it.
       var built = [];
+      var pools = group({ style: "mix-blend-mode:screen" });
 
       KINDS.forEach(function (kind, i) {
         var x = XS[i];
@@ -476,12 +573,31 @@
 
         var pw = 58 * s, ph = 30 * s, px0 = x - pw / 2;
         var top = base - ph;                              // the plinth's top face
+        // The case's size, fixed here so its light cone can be drawn
+        // under the object it illuminates.
+        var gh = 52 * s, gw = pw + 7 * s, gx0 = x - gw / 2;
+        pools.appendChild(ellipse(x, base + 2 * s, pw * 0.85, 5 * s, {
+          fill: "#ffffff", stroke: "none", opacity: 0.12 * s + 0.02
+        }));
         g.appendChild(ellipse(x, base + 1.5 * s, pw * 0.7, 4.5 * s, {
           fill: "#0d1018", stroke: "none", opacity: 0.3, filter: sc.blur("cs" + i, 1.8 * s + 0.4)
         }));
         g.appendChild(rect(px0, top, pw, ph, solid("#131926", 0.86)));
         g.appendChild(rect(px0 + pw * 0.74, top, pw * 0.26, ph, solid("#39445a", 0.5)));
         g.appendChild(rect(px0 - 3 * s, top - 4 * s, pw + 6 * s, 4.5 * s, solid("#080c16", 0.9)));
+        // The case's own lamp: a cone behind the object it lights.
+        g.appendChild(polygon(pts([
+          (x - 3 * s) + "," + (top - gh + 2 * s), (x + 3 * s) + "," + (top - gh + 2 * s),
+          (x + pw * 0.4) + "," + top, (x - pw * 0.4) + "," + top
+        ]), { fill: "#ffffff", stroke: "none", opacity: 0.10, style: "mix-blend-mode:screen" }));
+        // A label plate on the plinth face, for stations near enough to read.
+        if (s > 0.4) {
+          g.appendChild(rect(x - 8 * s, top + ph * 0.28, 16 * s, 6.5 * s, {
+            fill: "var(--bg2)", "fill-opacity": 0.5, stroke: "var(--fg)", "stroke-width": 0.6, opacity: 0.55
+          }));
+          g.appendChild(line(x - 5 * s, top + ph * 0.28 + 2.6 * s, x + 5 * s, top + ph * 0.28 + 2.6 * s, { stroke: "var(--fg)", opacity: 0.45, "stroke-width": 0.7 }));
+          g.appendChild(line(x - 5 * s, top + ph * 0.28 + 4.6 * s, x + 2 * s, top + ph * 0.28 + 4.6 * s, { stroke: "var(--fg)", opacity: 0.3, "stroke-width": 0.7 }));
+        }
 
         // Every era's hero object is authored in the same local box — 46
         // tall, ±26 wide, sitting on y=0 — then placed by the plinth's top
@@ -541,7 +657,6 @@
 
         // The case, over the object. This is what makes it a museum and
         // not a shelf — and losing it further down the row is the point.
-        var gh = 52 * s, gw = pw + 7 * s, gx0 = x - gw / 2;
         g.appendChild(rect(gx0, top - gh, gw, gh, {
           fill: "var(--bg2)", "fill-opacity": 0.14, stroke: "var(--fg)", "stroke-width": 0.8, opacity: 0.3
         }));
@@ -553,13 +668,41 @@
         built.push({ g: g, base: base, s: s });
       });
 
-      // Reflections first so they sit under every station, each mirrored
-      // about its own baseline rather than one shared floor line.
+      // Light pools under the cases go down first, then reflections, so
+      // both sit under every station. Each reflection is mirrored about
+      // its own baseline rather than one shared floor line.
+      sc.add(pools);
       built.forEach(function (b, i) {
         reflect(sc, "r" + i, b.g, b.base, 46 * b.s + 10, 0.16 * b.s + 0.05, 1.1);
       });
       // Then the stations themselves, far to near, so nearer ones occlude.
       for (var k = built.length - 1; k >= 0; k--) sc.add(built[k].g);
+
+      // Hanging banners over the walkway, receding with everything else —
+      // the exhibition's own signage, saying nothing legible.
+      [308, 396, 462].forEach(function (bx, bi) {
+        var bs2 = S(bx);
+        var bt = VP.y - (VP.y + 14) * bs2;
+        var bw = 17 * bs2, bh = 46 * bs2;
+        var bn = group({ opacity: 0.35 + 0.55 * bs2 });
+        bn.appendChild(line(bx - bw * 0.33, bt + 5 * bs2, bx, bt - 3 * bs2, { stroke: "var(--fg)", opacity: 0.4, "stroke-width": 0.6 }));
+        bn.appendChild(line(bx + bw * 0.33, bt + 5 * bs2, bx, bt - 3 * bs2, { stroke: "var(--fg)", opacity: 0.4, "stroke-width": 0.6 }));
+        bn.appendChild(rect(bx - bw / 2, bt + 5 * bs2, bw, bh, {
+          fill: "var(--bg2)", "fill-opacity": 0.8, stroke: "var(--fg)", "stroke-width": 0.7, opacity: 0.8
+        }));
+        bn.appendChild(rect(bx - bw / 2, bt + 5 * bs2, bw, 6 * bs2, {
+          fill: bi === 1 ? "var(--accent2)" : "var(--accent)", "fill-opacity": 0.7, stroke: "none"
+        }));
+        for (var gl = 0; gl < 3; gl++) {
+          bn.appendChild(line(bx - bw * 0.28, bt + (17 + gl * 7.5) * bs2, bx + bw * (0.28 - 0.13 * gl), bt + (17 + gl * 7.5) * bs2, {
+            stroke: "var(--fg)", opacity: 0.5 - gl * 0.12
+          }));
+        }
+        sc.add(bn);
+      });
+
+      // Dust hanging where the shafts make it visible.
+      motes(sc, 24, 212, 40, 302, 172, "#ffffff", 1.3);
 
       // The far end, erased. Everything within reach of the vanishing
       // point loses its edges to the light it is receding into.
@@ -569,15 +712,54 @@
         ]), stroke: "none"
       }));
 
-      // Two visitors, for scale. Without them the vitrines could be any
-      // size at all, and the gallery stops being a room.
+      // Visitors at four depths, for scale: one near, fixing the size of
+      // everything; one stopped at a case; a pair mid-gallery; and two
+      // nearly dissolved into the far light.
       var near = figure(100, 198, 60, { opacity: 0.92 });
       sc.add(ellipse(100, 199, 13, 3.4, { fill: "#0d1018", stroke: "none", opacity: 0.28, filter: sc.blur("f1s", 2) }));
       reflect(sc, "fr1", near, 198, 44, 0.16, 1.2);
       sc.add(near);
+      var atCase = figure(150, 186, 46, { opacity: 0.78 });
+      sc.add(ellipse(150, 186.8, 9, 2.4, { fill: "#0d1018", stroke: "none", opacity: 0.24, filter: sc.blur("f3s", 1.6) }));
+      reflect(sc, "fr3", atCase, 186, 32, 0.13, 1.2);
+      sc.add(atCase);
+      sc.add(ellipse(236, 174.8, 11, 2.2, { fill: "#0d1018", stroke: "none", opacity: 0.2, filter: sc.blur("f4s", 1.6) }));
+      sc.add(figure(231, 172.5, 34, { opacity: 0.6 }));
+      sc.add(figure(241, 174, 37, { opacity: 0.66 }));
       var far = figure(286, 160, 26, { opacity: 0.5 });
       sc.add(ellipse(286, 160.6, 6, 1.7, { fill: "#0d1018", stroke: "none", opacity: 0.22, filter: sc.blur("f2s", 1.2) }));
       sc.add(far);
+      sc.add(figure(352, 151, 16, { opacity: 0.36 }));
+
+      // The cordon: stanchions along the case side of the walkway, strung
+      // with a single sagging rope. Nearer than the crowd, so it goes over.
+      var rail = group(null);
+      var tops = [];
+      for (var si = 0; si < 6; si++) {
+        var rx2 = XS[si], rs2 = S(rx2);
+        var rb = VP.y + (207 - VP.y) * rs2, rh2 = 16 * rs2;
+        rail.appendChild(ellipse(rx2, rb + 0.8 * rs2, 2.6 * rs2, 0.9 * rs2, { fill: "#0d1018", stroke: "none", opacity: 0.25 }));
+        rail.appendChild(line(rx2, rb, rx2, rb - rh2, { stroke: "var(--fg)", "stroke-width": 1.3 * rs2 + 0.2, opacity: 0.35 + 0.35 * rs2 }));
+        rail.appendChild(circle(rx2, rb - rh2, 1.5 * rs2 + 0.2, solid("var(--fg)", 0.45 + 0.3 * rs2)));
+        tops.push([rx2, rb - rh2, rs2]);
+      }
+      for (var ci = 0; ci < tops.length - 1; ci++) {
+        rail.appendChild(cable(tops[ci][0], tops[ci][1], tops[ci + 1][0], tops[ci + 1][1],
+          4.5 * (tops[ci][2] + tops[ci + 1][2]) / 2, {
+            stroke: "var(--accent2)", "stroke-width": tops[ci][2] + 0.25, opacity: 0.3 + 0.3 * tops[ci][2]
+          }));
+      }
+      sc.add(rail);
+
+      // A bench, empty, in the near right — the one piece of furniture
+      // museums never change, in any of the rooms this page invents.
+      var bench = group(null);
+      bench.appendChild(rect(452, 193, 86, 5.5, { rx: 2.5, fill: "#131926", "fill-opacity": 0.88, stroke: "none" }));
+      bench.appendChild(rect(462, 198.5, 5, 9.5, solid("#131926", 0.8)));
+      bench.appendChild(rect(523, 198.5, 5, 9.5, solid("#131926", 0.8)));
+      sc.add(ellipse(495, 208.8, 46, 4, { fill: "#0d1018", stroke: "none", opacity: 0.22, filter: sc.blur("bsh", 2.4) }));
+      reflect(sc, "benchr", bench, 208, 18, 0.14, 1.2);
+      sc.add(bench);
 
       // Dust, kept to the darkened upper half where white specks read.
       var dust = group({ filter: sc.blur("dust-b", 0.6) });
